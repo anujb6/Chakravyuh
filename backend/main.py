@@ -28,11 +28,35 @@ app.include_router(router)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origin_regex=r"(localhost(:\d+)?|127\.0\.0\.1(:\d+)?|0\.0\.0\.0(:\d+)?|::1(:\d+)?)",
+    allow_origins=[
+        "http://localhost:3000",
+        "http://localhost:3001", 
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:3001",
+        "http://localhost:8000",
+        "http://127.0.0.1:8000",
+        "*"
+    ],
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-    allow_origins=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+    allow_headers=[
+        "Accept",
+        "Accept-Language",
+        "Content-Language",
+        "Content-Type",
+        "Authorization",
+        "X-Requested-With",
+        "Origin",
+        "Access-Control-Request-Method",
+        "Access-Control-Request-Headers",
+        "Sec-WebSocket-Extensions",
+        "Sec-WebSocket-Key",
+        "Sec-WebSocket-Protocol",
+        "Sec-WebSocket-Version",
+        "Connection",
+        "Upgrade"
+    ],
+    expose_headers=["*"]
 )
 
 @app.get("/health-server", include_in_schema=False)
@@ -49,5 +73,13 @@ async def redirect_to_docs():
     """
     return RedirectResponse(url="/api/docs")
 
+@app.middleware("http")
+async def websocket_cors_middleware(request, call_next):
+    if request.url.path.startswith("/api/data/ws/") or request.url.path.startswith("/commodities/ws/"):
+        response = await call_next(request)
+        return response
+    response = await call_next(request)
+    return response
+
 if __name__ == "__main__":
-    uvicorn.run(app, host="localhost", port=8000, log_level="info")
+    uvicorn.run(app, host="0.0.0.0", port=8000, log_level="info")

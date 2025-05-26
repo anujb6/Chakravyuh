@@ -71,7 +71,7 @@ class CommoditiesRouter:
             "/ws/replay/{symbol}",
             endpoint=self.websocket_replay
         )
-        
+
     async def get_available_symbols(self):
         try:
             symbols = await self.data_service.get_all_symbols()
