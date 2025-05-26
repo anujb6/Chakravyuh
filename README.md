@@ -1,4 +1,4 @@
-🕉️ **⟪Śāradāgrantha-Guhyālikā⟫** 🕉️  
+**⟪Śāradāgrantha-Guhyālikā⟫**
 ---
 
 ### 🜂 Kālasaṃcayaḥ ⟁
