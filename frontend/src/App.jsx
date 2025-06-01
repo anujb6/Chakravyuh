@@ -11,6 +11,7 @@ function App() {
   const [isReplayMode, setIsReplayMode] = useState(false);
   const [replayData, setReplayData] = useState(null);
   const [replayStatus, setReplayStatus] = useState(null);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   const handleSymbolChange = useCallback((symbol) => {
     setSelectedSymbol(symbol);
@@ -69,91 +70,109 @@ function App() {
 
   return (
     <div className="App">
-      <header className="app-header">
-        <h1>Trading Replay Platform</h1>
-        <div className="mode-indicator">
+      {/* Compact Header */}
+      <header className="app-header-compact">
+        <div className="header-left">
+          <button 
+            className="sidebar-toggle"
+            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+          >
+            {sidebarCollapsed ? '→' : '←'}
+          </button>
+          <h1>Trading Replay Platform</h1>
+          {selectedSymbol && (
+            <div className="header-symbol-info">
+              <span className="symbol-display">{selectedSymbol}</span>
+              <span className="timeframe-display">{selectedTimeframe}</span>
+            </div>
+          )}
+        </div>
+        
+        <div className="header-right">
           <span className={`mode-badge ${isReplayMode ? 'replay' : 'live'}`}>
-            {isReplayMode ? '🔄 REPLAY MODE' : '📊 CHART MODE'}
+            {isReplayMode ? '🔄 REPLAY' : '📊 CHART'}
           </span>
+          {replayStatus && (
+            <span className={`status-badge ${replayStatus.status}`}>
+              {formatStatusDisplay(replayStatus.status)}
+            </span>
+          )}
         </div>
       </header>
 
-      <div className="app-layout">
-        {/* Left Sidebar */}
-        <aside className="sidebar">
-          <SymbolSelector
-            selectedSymbol={selectedSymbol}
-            onSymbolChange={handleSymbolChange}
-            disabled={isReplayMode}
-          />
-
-          {selectedSymbol && (
-            <div className="mode-controls">
-              <button
-                className={`mode-toggle-btn ${isReplayMode ? 'exit' : 'enter'}`}
-                onClick={toggleReplayMode}
-              >
-                {isReplayMode ? '← Exit Replay' : '▶️ Start Replay'}
-              </button>
-            </div>
-          )}
-
-          {/* Replay Status */}
-          {replayStatus && (
-            <div className="replay-status">
-              <h4>Replay Status</h4>
-              <div className="status-info">
-                <div className="status-item">
-                  <span>State:</span>
-                  <span className={`status-value ${replayStatus.status}`}>
-                    {formatStatusDisplay(replayStatus.status)}
-                  </span>
-                </div>
-                <div className="status-item">
-                  <span>Playing:</span>
-                  <span className={`status-value ${replayStatus.isPlaying ? 'yes' : 'no'}`}>
-                    {replayStatus.isPlaying ? 'Yes' : 'No'}
-                  </span>
-                </div>
-                <div className="status-item">
-                  <span>Paused:</span>
-                  <span className={`status-value ${replayStatus.isPaused ? 'yes' : 'no'}`}>
-                    {replayStatus.isPaused ? 'Yes' : 'No'}
-                  </span>
-                </div>
-                {replayStatus.currentBar && (
-                  <>
-                    <div className="status-item">
-                      <span>Current Time:</span>
-                      <span className="status-value">
-                        {new Date(replayStatus.currentBar.timestamp).toLocaleString()}
-                      </span>
-                    </div>
-                    <div className="status-item">
-                      <span>Current Price:</span>
-                      <span className="status-value">
-                        ${replayStatus.currentBar.close.toFixed(4)}
-                      </span>
-                    </div>
-                  </>
-                )}
+      <div className="app-layout-maximized">
+        {/* Collapsible Sidebar */}
+        <aside className={`sidebar-compact ${sidebarCollapsed ? 'collapsed' : ''}`}>
+          {!sidebarCollapsed && (
+            <>
+              <div className="sidebar-section">
+                <SymbolSelector
+                  selectedSymbol={selectedSymbol}
+                  onSymbolChange={handleSymbolChange}
+                  disabled={isReplayMode}
+                />
               </div>
-            </div>
-          )}
 
-          {/* Replay Controls */}
-          {isReplayMode && selectedSymbol && (
-            <ReplayControls
-              symbol={selectedSymbol}
-              timeframe={selectedTimeframe}
-              onReplayData={handleReplayData}
-              onReplayStatusChange={handleReplayStatusChange}
-            />
+              {selectedSymbol && (
+                <div className="sidebar-section">
+                  <button
+                    className={`mode-toggle-btn ${isReplayMode ? 'exit' : 'enter'}`}
+                    onClick={toggleReplayMode}
+                  >
+                    {isReplayMode ? '← Exit Replay' : '▶️ Start Replay'}
+                  </button>
+                </div>
+              )}
+
+              {isReplayMode && selectedSymbol && (
+                <div className="sidebar-section">
+                  <ReplayControls
+                    symbol={selectedSymbol}
+                    timeframe={selectedTimeframe}
+                    onReplayData={handleReplayData}
+                    onReplayStatusChange={handleReplayStatusChange}
+                  />
+                </div>
+              )}
+
+              {/* Compact Replay Status */}
+              {replayStatus && (
+                <div className="sidebar-section">
+                  <div className="replay-status-compact">
+                    <h4>Status</h4>
+                    <div className="status-grid">
+                      <div className="status-row">
+                        <span>State:</span>
+                        <span className={`status-value ${replayStatus.status}`}>
+                          {formatStatusDisplay(replayStatus.status)}
+                        </span>
+                      </div>
+                      {replayStatus.currentBar && (
+                        <>
+                          <div className="status-row">
+                            <span>Time:</span>
+                            <span className="status-value">
+                              {new Date(replayStatus.currentBar.timestamp).toLocaleTimeString()}
+                            </span>
+                          </div>
+                          <div className="status-row">
+                            <span>Price:</span>
+                            <span className="status-value">
+                              ${replayStatus.currentBar.close.toFixed(4)}
+                            </span>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </aside>
 
-        {/* Main Content */}
-        <main className="main-content">
+        {/* Maximized Chart Area */}
+        <main className="main-content-maximized">
           {selectedSymbol ? (
             <TradingChart
               symbol={selectedSymbol}
@@ -163,19 +182,15 @@ function App() {
               replayData={replayData}
             />
           ) : (
-            <div className="no-symbol-selected">
-              <div className="placeholder-content">
-                <h2>Welcome to Trading Replay Platform</h2>
-                <p>Select a symbol from the sidebar to start viewing charts</p>
-                <div className="features-list">
-                  <h3>Features:</h3>
-                  <ul>
-                    <li>📊 Real-time chart viewing</li>
-                    <li>🔄 Historical data replay</li>
-                    <li>⏯️ Playback controls with speed adjustment</li>
-                    <li>📈 Multiple timeframes support</li>
-                    <li>📊 Volume analysis</li>
-                  </ul>
+            <div className="no-symbol-selected-compact">
+              <div className="placeholder-content-compact">
+                <h2>Select a Symbol to Begin</h2>
+                <p>Choose a trading symbol from the sidebar to view charts and start replay analysis</p>
+                <div className="quick-features">
+                  <span>📊 Real-time Charts</span>
+                  <span>🔄 Historical Replay</span>
+                  <span>⏯️ Playback Controls</span>
+                  <span>📈 Multiple Timeframes</span>
                 </div>
               </div>
             </div>
@@ -183,18 +198,18 @@ function App() {
         </main>
       </div>
 
-      {/* Footer */}
-      <footer className="app-footer">
-        <div className="footer-content">
+      {/* Minimal Footer */}
+      <footer className="app-footer-compact">
+        <div className="footer-content-compact">
           <span>Trading Replay Platform</span>
-          <span>•</span>
-          <span>Historical Market Data Analysis</span>
           {selectedSymbol && (
             <>
               <span>•</span>
               <span>{selectedSymbol} - {selectedTimeframe}</span>
             </>
           )}
+          <span>•</span>
+          <span>Historical Market Data Analysis</span>
         </div>
       </footer>
     </div>
