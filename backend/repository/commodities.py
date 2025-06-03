@@ -109,7 +109,6 @@ class CommoditiesRepository:
         return os.path.exists(file_path)
     
     def get_data_info(self, symbol: str) -> Optional[Dict[str, Any]]:
-        """Get metadata about symbol data"""
         try:
             df = self.get_symbol_data(symbol, '1h')
             if df is None:

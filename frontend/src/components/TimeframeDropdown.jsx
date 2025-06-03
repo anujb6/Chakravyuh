@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import './TimeframeDropdown.css'; // Import your CSS styles
+import './TimeframeDropdown.css';
 
 const TimeframeDropdown = ({ 
   timeframes, 
@@ -10,12 +10,9 @@ const TimeframeDropdown = ({
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef(null);
   
-  // Show first 3 timeframes in the main bar
   const primaryTimeframes = timeframes.slice(0, 3);
-  // Remaining timeframes for dropdown
   const dropdownTimeframes = timeframes.slice(3);
   
-  // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {

@@ -7,7 +7,6 @@
   overflow: hidden;
 }
 
-/* Enhanced Header */
 .chart-header {
   min-height: 60px;
   background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
@@ -21,7 +20,6 @@
   flex-shrink: 0;
 }
 
-/* Drawing Tools Panel Styles */
 .drawing-tools-panel {
   display: flex;
   gap: 20px;
@@ -88,7 +86,6 @@
   border-color: #2962FF;
 }
 
-/* Timeframe Selector */
 .timeframe-selector-compact {
   display: flex;
   gap: 2px;
@@ -126,7 +123,6 @@
   cursor: not-allowed;
 }
 
-/* Drawing Tools */
 .drawing-tools {
   display: flex;
   gap: 4px;
@@ -167,7 +163,6 @@
   color: #ffffff !important;
 }
 
-/* Indicators Panel */
 .indicators-panel {
   display: flex;
   gap: 4px;
@@ -199,7 +194,6 @@
   box-shadow: 0 0 8px rgba(0, 0, 0, 0.2);
 }
 
-/* Chart Info */
 .chart-info {
   display: flex;
   align-items: center;
@@ -266,7 +260,6 @@
   }
 }
 
-/* Chart Container */
 .chart-container-maximized {
   flex: 1;
   width: 100%;
@@ -275,7 +268,6 @@
   overflow: hidden;
 }
 
-/* Enhanced Footer */
 .chart-footer {
   height: 24px;
   background: #1a1a2e;
@@ -308,7 +300,6 @@
   color: #888;
 }
 
-/* Loading and Error States */
 .chart-loading,
 .chart-error {
   flex: 1;
@@ -344,7 +335,6 @@
   100% { transform: rotate(360deg); }
 }
 
-/* Tool Tooltips */
 .tool-btn[title]:hover::after {
   content: attr(title);
   position: absolute;
@@ -361,7 +351,6 @@
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
-/* Accessibility and Focus States */
 .timeframe-btn-compact:focus,
 .tool-btn:focus,
 .indicator-btn:focus {
@@ -375,7 +364,7 @@
   outline: none;
 }
 
-/* Additional Chart States */
+
 .chart-container-maximized.crosshair {
   cursor: crosshair;
 }
@@ -389,7 +378,6 @@
   opacity: 0.6;
 }
 
-/* Status Indicators */
 .connection-status {
   display: inline-flex;
   align-items: center;
@@ -418,7 +406,6 @@
   background: currentColor;
 }
 
-/* Responsive Design */
 @media (max-width: 1400px) {
   .chart-header {
     padding: 8px 12px;
@@ -505,7 +492,6 @@
     font-size: 9px;
   }
   
-  /* Stack layout for very small screens */
   .chart-info {
     width: 100%;
     order: 2;
@@ -566,7 +552,6 @@
   }
 }
 
-/* High DPI Displays */
 @media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
   .tool-btn,
   .timeframe-btn-compact,
@@ -575,7 +560,6 @@
   }
 }
 
-/* Dark Mode Enhancements */
 @media (prefers-color-scheme: dark) {
   .chart-attribution a {
     color: #555;
@@ -586,7 +570,6 @@
   }
 }
 
-/* Print Styles */
 @media print {
   .chart-header,
   .chart-footer {
@@ -602,7 +585,6 @@
   }
 }
 
-/* Reduced Motion */
 @media (prefers-reduced-motion: reduce) {
   .loading-spinner,
   .replay-indicator,

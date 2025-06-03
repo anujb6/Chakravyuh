@@ -115,7 +115,6 @@
   border-color: #3d4258;
 }
 
-/* Custom styling for datetime input */
 .control-group input[type="datetime-local"] {
   position: relative;
   color-scheme: dark;
@@ -272,7 +271,6 @@
   background: linear-gradient(145deg, #1e2139, #1a1d35);
 }
 
-/* Special styling for OHLC values */
 .bar-details span:nth-child(2),
 .bar-details span:nth-child(3),
 .bar-details span:nth-child(4),
@@ -302,7 +300,6 @@
   border-bottom: none;
 }
 
-/* Loading animation for connecting state */
 @keyframes pulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.5; }
@@ -314,7 +311,6 @@
   color: white;
 }
 
-/* Responsive design */
 @media (max-width: 768px) {
   .replay-controls {
     padding: 16px;
@@ -366,12 +362,10 @@
   }
 }
 
-/* Smooth transitions for state changes */
 .replay-controls * {
   transition: all 0.2s ease;
 }
 
-/* Focus visible for accessibility */
 .control-btn:focus-visible,
 .control-group input:focus-visible,
 .control-group select:focus-visible {

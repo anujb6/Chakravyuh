@@ -43,7 +43,7 @@ const ReplayControls = ({
 
   const connectWebSocket = () => {
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-      return; // Already connected
+      return;
     }
 
     if (wsRef.current) {
@@ -80,9 +80,8 @@ const ReplayControls = ({
         setIsPaused(false);
         setStatus('Disconnected');
 
-        // Attempt to reconnect with exponential backoff
         if (reconnectAttempts.current < maxReconnectAttempts) {
-          const delay = Math.pow(2, reconnectAttempts.current) * 1000; // 1s, 2s, 4s, 8s, 16s
+          const delay = Math.pow(2, reconnectAttempts.current) * 1000;
           console.log(`Attempting to reconnect in ${delay}ms (attempt ${reconnectAttempts.current + 1})`);
 
           reconnectTimeoutRef.current = setTimeout(() => {
@@ -172,14 +171,12 @@ const ReplayControls = ({
         break;
 
       case 'heartbeat':
-        // Keep connection alive
         break;
 
       default:
         console.log('Unknown message type:', data.type);
     }
 
-    // Notify parent component of status change
     if (onReplayStatusChange) {
       onReplayStatusChange({
         isPlaying: data.type === 'bar' ? true : isPlaying,
@@ -213,17 +210,14 @@ const ReplayControls = ({
   const formatDateTimeForBackend = (dateTimeLocal) => {
     if (!dateTimeLocal) return '';
 
-    // Convert local datetime to ISO format with timezone
     const date = new Date(dateTimeLocal);
 
-    // Get timezone offset in minutes and convert to hours:minutes format
     const offsetMinutes = date.getTimezoneOffset();
     const offsetHours = Math.floor(Math.abs(offsetMinutes) / 60);
     const offsetMins = Math.abs(offsetMinutes) % 60;
     const offsetSign = offsetMinutes <= 0 ? '+' : '-';
     const offsetString = `${offsetSign}${offsetHours.toString().padStart(2, '0')}:${offsetMins.toString().padStart(2, '0')}`;
 
-    // Format as ISO string and replace 'Z' with timezone offset
     return date.toISOString().slice(0, -1) + offsetString;
   };
 
@@ -241,7 +235,6 @@ const ReplayControls = ({
 
     const commandData = {};
     if (startDate) {
-      // Format the datetime for the backend
       commandData.start_date = formatDateTimeForBackend(startDate);
     }
 
@@ -275,7 +268,6 @@ const ReplayControls = ({
     setSpeed(newSpeed);
     console.log('Speed changed to:', newSpeed);
 
-    // If currently playing, restart with new speed
     if (isPlaying && !isPaused) {
       const commandData = {};
       if (startDate) {

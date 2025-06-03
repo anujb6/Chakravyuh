@@ -2,7 +2,7 @@
 
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { createChart, ColorType } from 'lightweight-charts';
-import './TradingChart.css'; // Import your CSS styles
+import './TradingChart.css';
 import TimeframeDropdown from './TimeframeDropdown.jsx';
 
 const TradingChart = ({
@@ -19,10 +19,9 @@ const TradingChart = ({
   const resizeObserverRef = useRef();
   const [chartReady, setChartReady] = useState(false);
   const [replayDataHistory, setReplayDataHistory] = useState([]);
-  const [autoScroll, setAutoScroll] = useState(true); // New state for auto-scroll control
-  const [userInteracted, setUserInteracted] = useState(false); // Track user interaction
+  const [autoScroll, setAutoScroll] = useState(true);
+  const [userInteracted, setUserInteracted] = useState(false);
 
-  // Available timeframes
   const timeframes = [
     { value: '1h', label: '1H' },
     { value: '2h', label: '2H' },
@@ -32,7 +31,6 @@ const TradingChart = ({
     { value: '1mo', label: '1M' }
   ];
 
-  // Resize handler function
   const handleResize = useCallback(() => {
     if (chartContainerRef.current && chartRef.current) {
       const { clientWidth, clientHeight } = chartContainerRef.current;
@@ -43,7 +41,6 @@ const TradingChart = ({
     }
   }, []);
 
-  // Handle user interaction with chart
   const handleChartInteraction = useCallback(() => {
     if (isReplayMode && !userInteracted) {
       setUserInteracted(true);
@@ -52,7 +49,6 @@ const TradingChart = ({
     }
   }, [isReplayMode, userInteracted]);
 
-  // Initialize chart
   useEffect(() => {
     if (!chartContainerRef.current) return;
 
@@ -119,11 +115,9 @@ const TradingChart = ({
       textColor: '#888',
     });
 
-    // Add event listeners to detect user interaction
     chart.timeScale().subscribeVisibleTimeRangeChange(handleChartInteraction);
     chart.subscribeCrosshairMove(handleChartInteraction);
     
-    // Add mouse event listeners to the chart container
     if (chartContainerRef.current) {
       chartContainerRef.current.addEventListener('wheel', handleChartInteraction);
       chartContainerRef.current.addEventListener('mousedown', handleChartInteraction);
@@ -135,13 +129,10 @@ const TradingChart = ({
     volumeSeriesRef.current = volumeSeries;
     setChartReady(true);
 
-    // Initial resize
     setTimeout(handleResize, 100);
 
-    // Set up ResizeObserver for better resize detection
     if (window.ResizeObserver) {
       resizeObserverRef.current = new ResizeObserver(entries => {
-        // Use requestAnimationFrame to debounce resize calls
         requestAnimationFrame(() => {
           handleResize();
         });
@@ -149,20 +140,17 @@ const TradingChart = ({
       resizeObserverRef.current.observe(chartContainerRef.current);
     }
 
-    // Fallback to window resize event
     window.addEventListener('resize', handleResize);
 
     return () => {
       window.removeEventListener('resize', handleResize);
 
-      // Cleanup event listeners
       if (chartContainerRef.current) {
         chartContainerRef.current.removeEventListener('wheel', handleChartInteraction);
         chartContainerRef.current.removeEventListener('mousedown', handleChartInteraction);
         chartContainerRef.current.removeEventListener('touchstart', handleChartInteraction);
       }
 
-      // Cleanup ResizeObserver
       if (resizeObserverRef.current) {
         resizeObserverRef.current.disconnect();
       }
@@ -173,11 +161,9 @@ const TradingChart = ({
     };
   }, [symbol, handleResize, handleChartInteraction]);
 
-  // Add effect to handle chart resize when container dimensions change
   useEffect(() => {
     if (!chartReady) return;
 
-    // Small delay to ensure DOM has updated
     const timeoutId = setTimeout(() => {
       handleResize();
     }, 50);
@@ -185,7 +171,6 @@ const TradingChart = ({
     return () => clearTimeout(timeoutId);
   }, [chartReady, handleResize]);
 
-  // Update chart data when symbol or timeframe changes (non-replay mode)
   useEffect(() => {
     if (!chartReady || !symbol || !timeframe || isReplayMode) return;
 
@@ -193,16 +178,13 @@ const TradingChart = ({
     fetchChartData();
   }, [chartReady, symbol, timeframe, isReplayMode]);
 
-  // Handle replay mode initialization
   useEffect(() => {
     if (!chartReady || !isReplayMode) return;
 
     console.log('Initializing replay mode');
-    // Reset auto-scroll and user interaction state when entering replay mode
     setAutoScroll(true);
     setUserInteracted(false);
     
-    // Clear existing data when entering replay mode
     setReplayDataHistory([]);
     
     if (candlestickSeriesRef.current && volumeSeriesRef.current) {
@@ -211,7 +193,6 @@ const TradingChart = ({
     }
   }, [chartReady, isReplayMode]);
 
-  // Handle replay data updates
   useEffect(() => {
     if (!chartReady || !isReplayMode || !replayData) return;
 
@@ -236,9 +217,6 @@ const TradingChart = ({
   const updateChart = useCallback((data) => {
     if (!candlestickSeriesRef.current || !volumeSeriesRef.current) return;
 
-    console.log('Updating chart with', data.length, 'bars');
-
-    // Prepare candlestick data
     const candlestickData = data.map(bar => ({
       time: new Date(bar.time).getTime() / 1000,
       open: bar.open,
@@ -247,23 +225,19 @@ const TradingChart = ({
       close: bar.close,
     }));
 
-    // Prepare volume data
     const volumeData = data.map(bar => ({
       time: new Date(bar.time).getTime() / 1000,
       value: bar.volume,
       color: bar.close >= bar.open ? 'rgba(38, 166, 154, 0.4)' : 'rgba(239, 83, 80, 0.4)',
     }));
 
-    // Update series
     candlestickSeriesRef.current.setData(candlestickData);
     volumeSeriesRef.current.setData(volumeData);
 
-    // Fit content with some padding
     if (chartRef.current) {
       chartRef.current.timeScale().fitContent();
     }
 
-    // Ensure chart is properly sized after data update
     setTimeout(handleResize, 100);
   }, [handleResize]);
 
@@ -274,13 +248,11 @@ const TradingChart = ({
 
     const time = new Date(barData.timestamp).getTime() / 1000;
 
-    // Add to history
     setReplayDataHistory(prev => {
       const newHistory = [...prev, barData];
       return newHistory;
     });
 
-    // Create candlestick bar
     const candlestickBar = {
       time: time,
       open: barData.open,
@@ -289,7 +261,6 @@ const TradingChart = ({
       close: barData.close,
     };
 
-    // Create volume bar
     const volumeBar = {
       time: time,
       value: barData.volume,
@@ -297,13 +268,10 @@ const TradingChart = ({
     };
 
     try {
-      // Update candlestick series
       candlestickSeriesRef.current.update(candlestickBar);
       
-      // Update volume series
       volumeSeriesRef.current.update(volumeBar);
 
-      // Only auto-scroll if user hasn't interacted with the chart
       if (chartRef.current && autoScroll && !userInteracted) {
         chartRef.current.timeScale().scrollToRealTime();
       }
@@ -320,13 +288,11 @@ const TradingChart = ({
     }
   };
 
-  // Function to manually enable/disable auto-scroll
   const toggleAutoScroll = () => {
     setAutoScroll(!autoScroll);
-    setUserInteracted(!autoScroll); // If enabling auto-scroll, reset user interaction
+    setUserInteracted(!autoScroll);
   };
 
-  // Function to scroll to latest data manually
   const scrollToLatest = () => {
     if (chartRef.current) {
       chartRef.current.timeScale().scrollToRealTime();
@@ -337,7 +303,7 @@ const TradingChart = ({
 
   return (
     <div className="trading-chart-maximized">
-      {/* Compact Timeframe Selector */}
+      {/* Timeframe Selector */}
       <div className="timeframe-bar">
         <TimeframeDropdown
           timeframes={timeframes}
@@ -378,13 +344,13 @@ const TradingChart = ({
         </div>
       </div>
 
-      {/* Maximized Chart Container */}
+      {/* Chart Container */}
       <div
         ref={chartContainerRef}
         className="chart-container-maximized"
       />
 
-      {/* Minimal Footer with Attribution */}
+      {/* Footer with Attribution */}
       <div className="chart-footer">
         <div className="chart-attribution">
           <a

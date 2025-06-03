@@ -87,7 +87,6 @@ async def websocket_replay(websocket: WebSocket, symbol: str):
         
         while True:
             try:
-                # Use receive_json instead of receive_text for better error handling
                 data = await websocket.receive_json()
                 logger.info(f"Received command: {data}")
                 
@@ -116,10 +115,9 @@ async def websocket_replay(websocket: WebSocket, symbol: str):
                 'message': str(e)
             })
         except:
-            pass  # Connection might be closed
+            pass
     finally:
         if connection_id in active_connections:
-            # Cancel any running replay task
             if active_connections[connection_id]['replay_task']:
                 active_connections[connection_id]['replay_task'].cancel()
             del active_connections[connection_id]
@@ -133,7 +131,6 @@ async def handle_replay_start(connection_id: str, command: dict):
     websocket = conn['websocket']
     symbol = conn['symbol']
     
-    # Cancel any existing replay task
     if conn['replay_task']:
         conn['replay_task'].cancel()
     
@@ -143,7 +140,6 @@ async def handle_replay_start(connection_id: str, command: dict):
     
     logger.info(f"Starting replay for {symbol}, timeframe: {timeframe}, speed: {speed}, start_date: {start_date}")
     
-    # Create and store the replay task
     conn['replay_task'] = asyncio.create_task(
         replay_data_stream(connection_id, symbol, timeframe, speed, start_date)
     )
@@ -155,14 +151,12 @@ async def replay_data_stream(connection_id: str, symbol: str, timeframe: str, sp
             
         websocket = active_connections[connection_id]['websocket']
         
-        # Get the data stream from your service
         async_gen = data_service.get_replay_data_stream(symbol, timeframe, start_date)
         
         async for bar_data in async_gen:
             if connection_id not in active_connections:
                 break
                 
-            # Check if paused
             while active_connections[connection_id]['paused']:
                 await asyncio.sleep(0.1)
                 if connection_id not in active_connections:
@@ -180,10 +174,8 @@ async def replay_data_stream(connection_id: str, symbol: str, timeframe: str, sp
                 logger.error(f"Error sending bar data: {e}")
                 break
             
-            # Control playback speed
             await asyncio.sleep(1.0 / speed)
         
-        # Send completion message
         if connection_id in active_connections:
             await websocket.send_json({
                 'type': 'finished',
@@ -229,7 +221,6 @@ async def handle_replay_stop(connection_id: str):
         conn = active_connections[connection_id]
         websocket = conn['websocket']
         
-        # Cancel the replay task
         if conn['replay_task']:
             conn['replay_task'].cancel()
             

@@ -20,7 +20,6 @@ body {
   background-color: #0d1421;
 }
 
-/* Compact Header */
 .app-header-compact {
   height: 50px;
   background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
@@ -131,15 +130,13 @@ body {
   color: #ffffff;
 }
 
-/* Maximized Layout */
 .app-layout-maximized {
   display: flex;
   flex: 1;
-  height: calc(100vh - 75px); /* Header + Footer */
+  height: calc(100vh - 75px); 
   overflow: hidden;
 }
 
-/* Compact Sidebar */
 .sidebar-compact {
   width: 280px;
   background: #1a1a2e;
@@ -167,7 +164,6 @@ body {
   border-bottom: none;
 }
 
-/* Mode Toggle Button */
 .mode-toggle-btn {
   width: 100%;
   padding: 12px;
@@ -197,7 +193,6 @@ body {
   background: #f66356;
 }
 
-/* Compact Replay Status */
 .replay-status-compact h4 {
   font-size: 14px;
   margin-bottom: 10px;
@@ -239,7 +234,6 @@ body {
   color: #f44336;
 }
 
-/* Maximized Main Content */
 .main-content-maximized {
   flex: 1;
   background: #0d1421;
@@ -248,7 +242,6 @@ body {
   overflow: hidden;
 }
 
-/* Compact No Symbol Selected */
 .no-symbol-selected-compact {
   flex: 1;
   display: flex;
@@ -292,7 +285,6 @@ body {
   font-weight: 500;
 }
 
-/* Compact Footer */
 .app-footer-compact {
   height: 25px;
   background: #1a1a2e;
@@ -311,7 +303,6 @@ body {
   color: #666;
 }
 
-/* Symbol Selector Compact Styles */
 .symbol-selector {
   color: #ffffff;
 }
@@ -491,7 +482,7 @@ body {
   border-color: #4a4a5e;
 }
 
-/* Replay Controls Compact */
+
 .replay-controls .controls-header h3 {
   font-size: 14px;
   margin-bottom: 8px;
@@ -589,14 +580,12 @@ body {
   color: #ffffff;
 }
 
-/* Animations */
 @keyframes pulse {
   0% { opacity: 1; }
   50% { opacity: 0.7; }
   100% { opacity: 1; }
 }
 
-/* Scrollbar Styling */
 ::-webkit-scrollbar {
   width: 6px;
 }
@@ -614,7 +603,6 @@ body {
   background: #4a4a5e;
 }
 
-/* Responsive adjustments */
 @media (max-width: 1200px) {
   .sidebar-compact {
     width: 260px;

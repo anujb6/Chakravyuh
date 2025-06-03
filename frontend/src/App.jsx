@@ -13,7 +13,6 @@ function App() {
   const [replayStatus, setReplayStatus] = useState(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   
-  // Persistent WebSocket connection state
   const [isWebSocketConnected, setIsWebSocketConnected] = useState(false);
   const wsRef = useRef(null);
   const reconnectTimeoutRef = useRef(null);
@@ -21,7 +20,6 @@ function App() {
   const maxReconnectAttempts = 5;
 
   const handleSymbolChange = useCallback((symbol) => {
-    // Disconnect existing WebSocket when changing symbols
     if (wsRef.current) {
       wsRef.current.close();
     }
@@ -57,12 +55,11 @@ function App() {
     }
   }, []);
 
-  // WebSocket connection management
   const connectWebSocket = useCallback(() => {
     if (!selectedSymbol) return;
     
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-      return; // Already connected
+      return;
     }
 
     if (wsRef.current) {
@@ -95,7 +92,6 @@ function App() {
         console.log('WebSocket closed:', event.code, event.reason);
         setIsWebSocketConnected(false);
 
-        // Attempt to reconnect if in replay mode
         if (isReplayMode && reconnectAttempts.current < maxReconnectAttempts) {
           const delay = Math.pow(2, reconnectAttempts.current) * 1000;
           console.log(`Attempting to reconnect in ${delay}ms (attempt ${reconnectAttempts.current + 1})`);
@@ -121,7 +117,6 @@ function App() {
   const handleWebSocketMessage = useCallback((data) => {
     switch (data.type) {
       case 'connected':
-        // Handle connection confirmation
         break;
 
       case 'bar':
@@ -185,13 +180,11 @@ function App() {
     }
   }, [handleReplayData, handleReplayStatusChange]);
 
-  // Connect WebSocket when entering replay mode
   useEffect(() => {
     if (isReplayMode && selectedSymbol && !isWebSocketConnected) {
       connectWebSocket();
     }
     
-    // Cleanup on unmount or when exiting replay mode
     return () => {
       if (!isReplayMode && wsRef.current) {
         wsRef.current.close();
@@ -204,7 +197,6 @@ function App() {
 
   const toggleReplayMode = () => {
     if (isReplayMode) {
-      // Exit replay mode - disconnect WebSocket
       if (wsRef.current) {
         wsRef.current.close();
       }
@@ -212,7 +204,6 @@ function App() {
       setReplayData(null);
       setReplayStatus(null);
     } else {
-      // Enter replay mode - connection will be established by useEffect
       setIsReplayMode(true);
     }
   };
@@ -232,7 +223,6 @@ function App() {
     return statusMap[status] || status;
   };
 
-  // WebSocket command sender
   const sendWebSocketCommand = useCallback((command, additionalData = {}) => {
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
       const message = {
@@ -253,7 +243,7 @@ function App() {
 
   return (
     <div className="App">
-      {/* Compact Header */}
+      {/* Header */}
       <header className="app-header-compact">
         <div className="header-left">
           <button 
@@ -289,7 +279,7 @@ function App() {
       </header>
 
       <div className="app-layout-maximized">
-        {/* Collapsible Sidebar */}
+        {/* Sidebar */}
         <aside className={`sidebar-compact ${sidebarCollapsed ? 'collapsed' : ''}`}>
           {!sidebarCollapsed && (
             <>
@@ -326,7 +316,7 @@ function App() {
                 </div>
               )}
 
-              {/* Compact Replay Status */}
+              {/* Replay Status */}
               {replayStatus && (
                 <div className="sidebar-section">
                   <div className="replay-status-compact">
@@ -362,7 +352,7 @@ function App() {
           )}
         </aside>
 
-        {/* Maximized Chart Area */}
+        {/* Chart Area */}
         <main className="main-content-maximized">
           {selectedSymbol ? (
             <TradingChart
@@ -389,7 +379,7 @@ function App() {
         </main>
       </div>
 
-      {/* Minimal Footer */}
+      {/* Footer */}
       <footer className="app-footer-compact">
         <div className="footer-content-compact">
           <span>Trading Replay Platform</span>
