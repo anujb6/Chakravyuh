@@ -69,6 +69,7 @@ class CommoditiesRepository:
             end = pd.to_datetime(end_date)
             
             filtered_df = df.loc[start:end]
+            print(filtered_df.head())
             return filtered_df
             
         except Exception as e:

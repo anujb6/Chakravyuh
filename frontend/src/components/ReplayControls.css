@@ -1,0 +1,191 @@
+/* Add this to your CSS file or create ReplayControls.css */
+
+.replay-controls {
+  background: #1a1a2e;
+  border: 1px solid #2a2a3e;
+  border-radius: 8px;
+  padding: 16px;
+  margin: 16px 0;
+  color: #d1d4dc;
+}
+
+.controls-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  border-bottom: 1px solid #2a2a3e;
+  padding-bottom: 12px;
+}
+
+.controls-header h3 {
+  margin: 0;
+  color: #ffffff;
+  font-size: 16px;
+}
+
+.connection-status {
+  padding: 4px 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.connection-status.connected {
+  background: #26a69a;
+  color: white;
+}
+
+.connection-status.disconnected {
+  background: #ef5350;
+  color: white;
+}
+
+.controls-row {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.control-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.control-group label {
+  font-size: 12px;
+  color: #888;
+  margin-bottom: 4px;
+}
+
+.control-group input,
+.control-group select {
+  padding: 6px 8px;
+  border: 1px solid #2a2a3e;
+  border-radius: 4px;
+  background: #0d1421;
+  color: #d1d4dc;
+  font-size: 14px;
+}
+
+.control-group input:focus,
+.control-group select:focus {
+  outline: none;
+  border-color: #26a69a;
+}
+
+.playback-controls {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.control-btn {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.control-btn:hover {
+  opacity: 0.8;
+}
+
+.control-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.play-btn {
+  background: #26a69a;
+  color: white;
+}
+
+.pause-btn {
+  background: #ff9800;
+  color: white;
+}
+
+.resume-btn {
+  background: #26a69a;
+  color: white;
+}
+
+.stop-btn {
+  background: #ef5350;
+  color: white;
+}
+
+.connect-btn {
+  background: #2196f3;
+  color: white;
+}
+
+.current-bar-info {
+  background: #0d1421;
+  border: 1px solid #2a2a3e;
+  border-radius: 4px;
+  padding: 12px;
+  margin-top: 12px;
+}
+
+.current-bar-info h4 {
+  margin: 0 0 8px 0;
+  color: #ffffff;
+  font-size: 14px;
+}
+
+.bar-details {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: #d1d4dc;
+}
+
+.bar-details span {
+  background: #1a1a2e;
+  padding: 2px 6px;
+  border-radius: 3px;
+  border: 1px solid #2a2a3e;
+}
+
+.debug-info {
+  background: #0a0a0a;
+  border: 1px solid #333;
+  border-radius: 4px;
+  padding: 8px;
+  font-family: monospace;
+}
+
+.debug-info div {
+  margin: 2px 0;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .controls-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .control-group {
+    width: 100%;
+  }
+  
+  .playback-controls {
+    justify-content: center;
+  }
+  
+  .bar-details {
+    justify-content: center;
+  }
+}

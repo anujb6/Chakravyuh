@@ -188,17 +188,6 @@ const SymbolSelector = ({
           })()}
         </div>
       )}
-
-      {/* Refresh Button */}
-      <div className="actions">
-        <button 
-          onClick={fetchSymbols} 
-          className="refresh-btn"
-          disabled={loading || disabled}
-        >
-          🔄 Refresh Symbols
-        </button>
-      </div>
     </div>
   );
 };

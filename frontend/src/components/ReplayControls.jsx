@@ -1,12 +1,13 @@
 // frontend/src/components/ReplayControls.js
 
 import React, { useState, useEffect, useRef } from 'react';
+import './ReplayControls.css';
 
-const ReplayControls = ({ 
-  symbol, 
-  timeframe, 
-  onReplayData, 
-  onReplayStatusChange 
+const ReplayControls = ({
+  symbol,
+  timeframe,
+  onReplayData,
+  onReplayStatusChange
 }) => {
   const [isConnected, setIsConnected] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -15,9 +16,11 @@ const ReplayControls = ({
   const [startDate, setStartDate] = useState('');
   const [currentBar, setCurrentBar] = useState(null);
   const [status, setStatus] = useState('Disconnected');
-  
+
   const wsRef = useRef(null);
   const reconnectTimeoutRef = useRef(null);
+  const reconnectAttempts = useRef(0);
+  const maxReconnectAttempts = 5;
 
   const speedOptions = [
     { value: 0.25, label: '0.25x' },
@@ -39,38 +42,58 @@ const ReplayControls = ({
   }, [symbol]);
 
   const connectWebSocket = () => {
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      return; // Already connected
+    }
+
     if (wsRef.current) {
       wsRef.current.close();
     }
 
     try {
-      const wsUrl = `ws://localhost:8000/ws/replay/${symbol}`;
+      const wsUrl = `ws://localhost:8000/ws/${symbol}`;
+      console.log('Connecting to:', wsUrl);
+
       wsRef.current = new WebSocket(wsUrl);
 
       wsRef.current.onopen = () => {
         setIsConnected(true);
         setStatus('Connected');
+        reconnectAttempts.current = 0;
         console.log('WebSocket connected for', symbol);
       };
 
       wsRef.current.onmessage = (event) => {
-        const data = JSON.parse(event.data);
-        handleWebSocketMessage(data);
+        try {
+          const data = JSON.parse(event.data);
+          console.log('Received WebSocket message:', data);
+          handleWebSocketMessage(data);
+        } catch (error) {
+          console.error('Error parsing WebSocket message:', error);
+        }
       };
 
-      wsRef.current.onclose = () => {
+      wsRef.current.onclose = (event) => {
+        console.log('WebSocket closed:', event.code, event.reason);
         setIsConnected(false);
         setIsPlaying(false);
         setIsPaused(false);
         setStatus('Disconnected');
-        console.log('WebSocket disconnected for', symbol);
-        
-        // Attempt to reconnect after 3 seconds
-        reconnectTimeoutRef.current = setTimeout(() => {
-          if (symbol) {
-            connectWebSocket();
-          }
-        }, 3000);
+
+        // Attempt to reconnect with exponential backoff
+        if (reconnectAttempts.current < maxReconnectAttempts) {
+          const delay = Math.pow(2, reconnectAttempts.current) * 1000; // 1s, 2s, 4s, 8s, 16s
+          console.log(`Attempting to reconnect in ${delay}ms (attempt ${reconnectAttempts.current + 1})`);
+
+          reconnectTimeoutRef.current = setTimeout(() => {
+            reconnectAttempts.current++;
+            if (symbol) {
+              connectWebSocket();
+            }
+          }, delay);
+        } else {
+          setStatus('Connection Failed - Max retries exceeded');
+        }
       };
 
       wsRef.current.onerror = (error) => {
@@ -79,7 +102,7 @@ const ReplayControls = ({
       };
 
     } catch (error) {
-      console.error('Error connecting WebSocket:', error);
+      console.error('Error creating WebSocket:', error);
       setStatus('Connection Failed');
     }
   };
@@ -87,15 +110,18 @@ const ReplayControls = ({
   const disconnectWebSocket = () => {
     if (reconnectTimeoutRef.current) {
       clearTimeout(reconnectTimeoutRef.current);
+      reconnectTimeoutRef.current = null;
     }
 
     if (wsRef.current) {
-      wsRef.current.close();
+      wsRef.current.close(1000, 'Component unmounting');
       wsRef.current = null;
     }
   };
 
   const handleWebSocketMessage = (data) => {
+    console.log('Processing message:', data.type);
+
     switch (data.type) {
       case 'connected':
         setStatus('Ready for Replay');
@@ -103,10 +129,16 @@ const ReplayControls = ({
 
       case 'bar':
         setCurrentBar(data.bar);
+        setIsPlaying(true);
+        setIsPaused(false);
+
         if (onReplayData) {
+          console.log('Calling onReplayData with:', data.bar);
           onReplayData(data.bar);
         }
-        setStatus(`Playing - ${new Date(data.bar.timestamp).toLocaleString()}`);
+
+        const timestamp = new Date(data.bar.timestamp).toLocaleString();
+        setStatus(`Playing - ${timestamp}`);
         break;
 
       case 'paused':
@@ -122,6 +154,7 @@ const ReplayControls = ({
       case 'stopped':
         setIsPlaying(false);
         setIsPaused(false);
+        setCurrentBar(null);
         setStatus('Stopped');
         break;
 
@@ -133,6 +166,9 @@ const ReplayControls = ({
 
       case 'error':
         setStatus(`Error: ${data.message}`);
+        setIsPlaying(false);
+        setIsPaused(false);
+        console.error('Replay error:', data.message);
         break;
 
       case 'heartbeat':
@@ -143,10 +179,11 @@ const ReplayControls = ({
         console.log('Unknown message type:', data.type);
     }
 
+    // Notify parent component of status change
     if (onReplayStatusChange) {
       onReplayStatusChange({
-        isPlaying,
-        isPaused,
+        isPlaying: data.type === 'bar' ? true : isPlaying,
+        isPaused: data.type === 'paused',
         status: data.type,
         currentBar: data.bar || currentBar
       });
@@ -162,51 +199,89 @@ const ReplayControls = ({
         speed,
         ...additionalData
       };
-      
+
+      console.log('Sending command:', message);
       wsRef.current.send(JSON.stringify(message));
+      return true;
     } else {
-      console.error('WebSocket not connected');
+      console.error('WebSocket not connected, state:', wsRef.current?.readyState);
       setStatus('Not Connected');
+      return false;
     }
+  };
+
+  const formatDateTimeForBackend = (dateTimeLocal) => {
+    if (!dateTimeLocal) return '';
+
+    // Convert local datetime to ISO format with timezone
+    const date = new Date(dateTimeLocal);
+
+    // Get timezone offset in minutes and convert to hours:minutes format
+    const offsetMinutes = date.getTimezoneOffset();
+    const offsetHours = Math.floor(Math.abs(offsetMinutes) / 60);
+    const offsetMins = Math.abs(offsetMinutes) % 60;
+    const offsetSign = offsetMinutes <= 0 ? '+' : '-';
+    const offsetString = `${offsetSign}${offsetHours.toString().padStart(2, '0')}:${offsetMins.toString().padStart(2, '0')}`;
+
+    // Format as ISO string and replace 'Z' with timezone offset
+    return date.toISOString().slice(0, -1) + offsetString;
   };
 
   const handlePlay = () => {
     if (!isConnected) {
+      console.log('Not connected, attempting to connect...');
       connectWebSocket();
+      setTimeout(() => {
+        if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+          handlePlay();
+        }
+      }, 1000);
       return;
     }
 
     const commandData = {};
     if (startDate) {
-      commandData.start_date = startDate;
+      // Format the datetime for the backend
+      commandData.start_date = formatDateTimeForBackend(startDate);
     }
 
-    sendCommand('start', commandData);
-    setIsPlaying(true);
-    setIsPaused(false);
+    if (sendCommand('start', commandData)) {
+      setStatus('Starting replay...');
+    }
   };
 
   const handlePause = () => {
-    sendCommand('pause');
-    setIsPaused(true);
+    if (sendCommand('pause')) {
+      setStatus('Pausing...');
+    }
   };
 
   const handleResume = () => {
-    sendCommand('resume');
-    setIsPaused(false);
+    if (sendCommand('resume')) {
+      setStatus('Resuming...');
+    }
   };
 
   const handleStop = () => {
-    sendCommand('stop');
-    setIsPlaying(false);
-    setIsPaused(false);
-    setCurrentBar(null);
+    if (sendCommand('stop')) {
+      setIsPlaying(false);
+      setIsPaused(false);
+      setCurrentBar(null);
+      setStatus('Stopping...');
+    }
   };
 
   const handleSpeedChange = (newSpeed) => {
     setSpeed(newSpeed);
+    console.log('Speed changed to:', newSpeed);
+
+    // If currently playing, restart with new speed
     if (isPlaying && !isPaused) {
-      sendCommand('start', { start_date: startDate });
+      const commandData = {};
+      if (startDate) {
+        commandData.start_date = startDate;
+      }
+      sendCommand('start', commandData);
     }
   };
 
@@ -222,13 +297,13 @@ const ReplayControls = ({
       <div className="controls-row">
         {/* Date Selection */}
         <div className="control-group">
-          <label htmlFor="start-date">Start Date:</label>
+          <label htmlFor="start-date">Start Date & Time:</label>
           <input
             id="start-date"
-            type="date"
+            type="datetime-local"
             value={startDate}
             onChange={(e) => setStartDate(e.target.value)}
-            disabled={isPlaying}
+            disabled={isPlaying && !isPaused}
           />
         </div>
 
@@ -253,7 +328,7 @@ const ReplayControls = ({
         {/* Playback Controls */}
         <div className="playback-controls">
           {!isPlaying ? (
-            <button 
+            <button
               className="control-btn play-btn"
               onClick={handlePlay}
               disabled={!symbol}
@@ -263,27 +338,38 @@ const ReplayControls = ({
           ) : (
             <>
               {!isPaused ? (
-                <button 
+                <button
                   className="control-btn pause-btn"
                   onClick={handlePause}
                 >
                   ⏸️ Pause
                 </button>
               ) : (
-                <button 
+                <button
                   className="control-btn resume-btn"
                   onClick={handleResume}
                 >
                   ▶️ Resume
                 </button>
               )}
-              <button 
+              <button
                 className="control-btn stop-btn"
                 onClick={handleStop}
               >
                 ⏹️ Stop
               </button>
             </>
+          )}
+
+          {/* Connection status button */}
+          {!isConnected && (
+            <button
+              className="control-btn connect-btn"
+              onClick={connectWebSocket}
+              disabled={wsRef.current?.readyState === WebSocket.CONNECTING}
+            >
+              🔄 Reconnect
+            </button>
           )}
         </div>
       </div>
@@ -302,6 +388,14 @@ const ReplayControls = ({
           </div>
         </div>
       )}
+
+      {/* Debug Info */}
+      <div className="debug-info" style={{ fontSize: '12px', color: '#666', marginTop: '10px' }}>
+        <div>WebSocket State: {wsRef.current?.readyState || 'null'}</div>
+        <div>Connected: {isConnected.toString()}</div>
+        <div>Playing: {isPlaying.toString()}</div>
+        <div>Paused: {isPaused.toString()}</div>
+      </div>
     </div>
   );
 };
