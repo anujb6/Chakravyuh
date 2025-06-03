@@ -17,6 +17,7 @@ const TradingChart = ({
   const candlestickSeriesRef = useRef();
   const volumeSeriesRef = useRef();
   const resizeObserverRef = useRef();
+  const resizeObserverRef = useRef();
   const [chartReady, setChartReady] = useState(false);
   const [replayDataHistory, setReplayDataHistory] = useState([]);
   const [autoScroll, setAutoScroll] = useState(true); // New state for auto-scroll control
@@ -25,7 +26,6 @@ const TradingChart = ({
   // Available timeframes
   const timeframes = [
     { value: '1h', label: '1H' },
-    { value: '2h', label: '2H' },
     { value: '4h', label: '4H' },
     { value: '1d', label: '1D' },
     { value: '1w', label: '1W' },
@@ -59,9 +59,12 @@ const TradingChart = ({
     const chart = createChart(chartContainerRef.current, {
       layout: {
         background: { type: ColorType.Solid, color: '#0d1421' },
+        background: { type: ColorType.Solid, color: '#0d1421' },
         textColor: '#d1d4dc',
       },
       grid: {
+        vertLines: { color: '#1e2837' },
+        horzLines: { color: '#1e2837' },
         vertLines: { color: '#1e2837' },
         horzLines: { color: '#1e2837' },
       },
@@ -77,12 +80,26 @@ const TradingChart = ({
           width: 1,
           labelBackgroundColor: '#2a2a3e',
         },
+        vertLine: {
+          color: '#758696',
+          width: 1,
+          labelBackgroundColor: '#2a2a3e',
+        },
+        horzLine: {
+          color: '#758696',
+          width: 1,
+          labelBackgroundColor: '#2a2a3e',
+        },
       },
       rightPriceScale: {
         borderColor: '#2a2a3e',
         textColor: '#d1d4dc',
+        borderColor: '#2a2a3e',
+        textColor: '#d1d4dc',
       },
       timeScale: {
+        borderColor: '#2a2a3e',
+        textColor: '#d1d4dc',
         borderColor: '#2a2a3e',
         textColor: '#d1d4dc',
         timeVisible: true,
@@ -101,6 +118,11 @@ const TradingChart = ({
         precision: 4,
         minMove: 0.0001,
       },
+      priceFormat: {
+        type: 'price',
+        precision: 4,
+        minMove: 0.0001,
+      },
     });
 
     const volumeSeries = chart.addHistogramSeries({
@@ -114,8 +136,10 @@ const TradingChart = ({
     chart.priceScale('volume').applyOptions({
       scaleMargins: {
         top: 0.85,
+        top: 0.85,
         bottom: 0,
       },
+      textColor: '#888',
       textColor: '#888',
     });
 
@@ -135,6 +159,21 @@ const TradingChart = ({
     volumeSeriesRef.current = volumeSeries;
     setChartReady(true);
 
+    // Initial resize
+    setTimeout(handleResize, 100);
+
+    // Set up ResizeObserver for better resize detection
+    if (window.ResizeObserver) {
+      resizeObserverRef.current = new ResizeObserver(entries => {
+        // Use requestAnimationFrame to debounce resize calls
+        requestAnimationFrame(() => {
+          handleResize();
+        });
+      });
+      resizeObserverRef.current.observe(chartContainerRef.current);
+    }
+
+    // Fallback to window resize event
     // Initial resize
     setTimeout(handleResize, 100);
 
@@ -187,6 +226,7 @@ const TradingChart = ({
 
   // Update chart data when symbol or timeframe changes (non-replay mode)
   useEffect(() => {
+    if (!chartReady || !symbol || !timeframe || isReplayMode) return;
     if (!chartReady || !symbol || !timeframe || isReplayMode) return;
 
     console.log('Fetching chart data for:', symbol, timeframe);
@@ -259,9 +299,14 @@ const TradingChart = ({
     volumeSeriesRef.current.setData(volumeData);
 
     // Fit content with some padding
+    // Fit content with some padding
     if (chartRef.current) {
       chartRef.current.timeScale().fitContent();
     }
+
+    // Ensure chart is properly sized after data update
+    setTimeout(handleResize, 100);
+  }, [handleResize]);
 
     // Ensure chart is properly sized after data update
     setTimeout(handleResize, 100);
