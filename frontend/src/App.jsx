@@ -1,5 +1,5 @@
 // frontend/src/App.js
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import './App.css';
 import TradingChart from './components/TradingChart';
 import ReplayControls from './components/ReplayControls';
@@ -12,11 +12,24 @@ function App() {
   const [replayData, setReplayData] = useState(null);
   const [replayStatus, setReplayStatus] = useState(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  
+  // Persistent WebSocket connection state
+  const [isWebSocketConnected, setIsWebSocketConnected] = useState(false);
+  const wsRef = useRef(null);
+  const reconnectTimeoutRef = useRef(null);
+  const reconnectAttempts = useRef(0);
+  const maxReconnectAttempts = 5;
 
   const handleSymbolChange = useCallback((symbol) => {
+    // Disconnect existing WebSocket when changing symbols
+    if (wsRef.current) {
+      wsRef.current.close();
+    }
+    
     setSelectedSymbol(symbol);
     setIsReplayMode(false);
     setReplayData(null);
+    setReplayStatus(null);
   }, []);
 
   const handleTimeframeChange = useCallback((timeframe) => {
@@ -24,6 +37,7 @@ function App() {
     if (isReplayMode) {
       setIsReplayMode(false);
       setReplayData(null);
+      setReplayStatus(null);
     }
   }, [isReplayMode]);
 
@@ -43,12 +57,162 @@ function App() {
     }
   }, []);
 
+  // WebSocket connection management
+  const connectWebSocket = useCallback(() => {
+    if (!selectedSymbol) return;
+    
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      return; // Already connected
+    }
+
+    if (wsRef.current) {
+      wsRef.current.close();
+    }
+
+    try {
+      const wsUrl = `ws://localhost:8000/ws/${selectedSymbol}`;
+      console.log('Connecting to:', wsUrl);
+
+      wsRef.current = new WebSocket(wsUrl);
+
+      wsRef.current.onopen = () => {
+        setIsWebSocketConnected(true);
+        reconnectAttempts.current = 0;
+        console.log('WebSocket connected for', selectedSymbol);
+      };
+
+      wsRef.current.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          console.log('Received WebSocket message:', data);
+          handleWebSocketMessage(data);
+        } catch (error) {
+          console.error('Error parsing WebSocket message:', error);
+        }
+      };
+
+      wsRef.current.onclose = (event) => {
+        console.log('WebSocket closed:', event.code, event.reason);
+        setIsWebSocketConnected(false);
+
+        // Attempt to reconnect if in replay mode
+        if (isReplayMode && reconnectAttempts.current < maxReconnectAttempts) {
+          const delay = Math.pow(2, reconnectAttempts.current) * 1000;
+          console.log(`Attempting to reconnect in ${delay}ms (attempt ${reconnectAttempts.current + 1})`);
+
+          reconnectTimeoutRef.current = setTimeout(() => {
+            reconnectAttempts.current++;
+            if (selectedSymbol && isReplayMode) {
+              connectWebSocket();
+            }
+          }, delay);
+        }
+      };
+
+      wsRef.current.onerror = (error) => {
+        console.error('WebSocket error:', error);
+      };
+
+    } catch (error) {
+      console.error('Error creating WebSocket:', error);
+    }
+  }, [selectedSymbol, isReplayMode]);
+
+  const handleWebSocketMessage = useCallback((data) => {
+    switch (data.type) {
+      case 'connected':
+        // Handle connection confirmation
+        break;
+
+      case 'bar':
+        handleReplayData(data.bar);
+        handleReplayStatusChange({
+          isPlaying: true,
+          isPaused: false,
+          status: 'playing',
+          currentBar: data.bar
+        });
+        break;
+
+      case 'paused':
+        handleReplayStatusChange({
+          isPlaying: false,
+          isPaused: true,
+          status: 'paused',
+          currentBar: null
+        });
+        break;
+
+      case 'resumed':
+        handleReplayStatusChange({
+          isPlaying: true,
+          isPaused: false,
+          status: 'playing',
+          currentBar: null
+        });
+        break;
+
+      case 'stopped':
+        handleReplayStatusChange({
+          isPlaying: false,
+          isPaused: false,
+          status: 'stopped',
+          currentBar: null
+        });
+        break;
+
+      case 'finished':
+        handleReplayStatusChange({
+          isPlaying: false,
+          isPaused: false,
+          status: 'finished',
+          currentBar: null
+        });
+        break;
+
+      case 'error':
+        console.error('Replay error:', data.message);
+        handleReplayStatusChange({
+          isPlaying: false,
+          isPaused: false,
+          status: 'error',
+          currentBar: null
+        });
+        break;
+
+      default:
+        console.log('Unknown message type:', data.type);
+    }
+  }, [handleReplayData, handleReplayStatusChange]);
+
+  // Connect WebSocket when entering replay mode
+  useEffect(() => {
+    if (isReplayMode && selectedSymbol && !isWebSocketConnected) {
+      connectWebSocket();
+    }
+    
+    // Cleanup on unmount or when exiting replay mode
+    return () => {
+      if (!isReplayMode && wsRef.current) {
+        wsRef.current.close();
+      }
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+      }
+    };
+  }, [isReplayMode, selectedSymbol, isWebSocketConnected, connectWebSocket]);
+
   const toggleReplayMode = () => {
     if (isReplayMode) {
-      // Exit replay mode
+      // Exit replay mode - disconnect WebSocket
+      if (wsRef.current) {
+        wsRef.current.close();
+      }
       setIsReplayMode(false);
       setReplayData(null);
+      setReplayStatus(null);
     } else {
+      // Enter replay mode - connection will be established by useEffect
       setIsReplayMode(true);
     }
   };
@@ -67,6 +231,25 @@ function App() {
     
     return statusMap[status] || status;
   };
+
+  // WebSocket command sender
+  const sendWebSocketCommand = useCallback((command, additionalData = {}) => {
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      const message = {
+        command,
+        symbol: selectedSymbol,
+        timeframe: selectedTimeframe,
+        ...additionalData
+      };
+
+      console.log('Sending command:', message);
+      wsRef.current.send(JSON.stringify(message));
+      return true;
+    } else {
+      console.error('WebSocket not connected');
+      return false;
+    }
+  }, [selectedSymbol, selectedTimeframe]);
 
   return (
     <div className="App">
@@ -95,6 +278,11 @@ function App() {
           {replayStatus && (
             <span className={`status-badge ${replayStatus.status}`}>
               {formatStatusDisplay(replayStatus.status)}
+            </span>
+          )}
+          {isReplayMode && (
+            <span className={`connection-badge ${isWebSocketConnected ? 'connected' : 'disconnected'}`}>
+              {isWebSocketConnected ? '🟢' : '🔴'}
             </span>
           )}
         </div>
@@ -131,6 +319,9 @@ function App() {
                     timeframe={selectedTimeframe}
                     onReplayData={handleReplayData}
                     onReplayStatusChange={handleReplayStatusChange}
+                    isWebSocketConnected={isWebSocketConnected}
+                    sendWebSocketCommand={sendWebSocketCommand}
+                    onReconnect={connectWebSocket}
                   />
                 </div>
               )}
