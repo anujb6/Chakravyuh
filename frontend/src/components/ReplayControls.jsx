@@ -7,20 +7,18 @@ const ReplayControls = ({
   symbol,
   timeframe,
   onReplayData,
-  onReplayStatusChange
+  onReplayStatusChange,
+  onReplayStartDateChange, // New prop from App.js
+  isWebSocketConnected,
+  sendWebSocketCommand,
+  onReconnect
 }) => {
-  const [isConnected, setIsConnected] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [speed, setSpeed] = useState(1.0);
   const [startDate, setStartDate] = useState('');
   const [currentBar, setCurrentBar] = useState(null);
-  const [status, setStatus] = useState('Disconnected');
-
-  const wsRef = useRef(null);
-  const reconnectTimeoutRef = useRef(null);
-  const reconnectAttempts = useRef(0);
-  const maxReconnectAttempts = 5;
+  const [status, setStatus] = useState('Ready');
 
   const speedOptions = [
     { value: 0.25, label: '0.25x' },
@@ -31,181 +29,16 @@ const ReplayControls = ({
     { value: 10.0, label: '10x' }
   ];
 
+  // Update local state based on WebSocket connection status
   useEffect(() => {
-    if (symbol) {
-      connectWebSocket();
-    }
-
-    return () => {
-      disconnectWebSocket();
-    };
-  }, [symbol]);
-
-  const connectWebSocket = () => {
-    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-      return;
-    }
-
-    if (wsRef.current) {
-      wsRef.current.close();
-    }
-
-    try {
-      const wsUrl = `ws://localhost:8000/ws/${symbol}`;
-      console.log('Connecting to:', wsUrl);
-
-      wsRef.current = new WebSocket(wsUrl);
-
-      wsRef.current.onopen = () => {
-        setIsConnected(true);
-        setStatus('Connected');
-        reconnectAttempts.current = 0;
-        console.log('WebSocket connected for', symbol);
-      };
-
-      wsRef.current.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          console.log('Received WebSocket message:', data);
-          handleWebSocketMessage(data);
-        } catch (error) {
-          console.error('Error parsing WebSocket message:', error);
-        }
-      };
-
-      wsRef.current.onclose = (event) => {
-        console.log('WebSocket closed:', event.code, event.reason);
-        setIsConnected(false);
-        setIsPlaying(false);
-        setIsPaused(false);
-        setStatus('Disconnected');
-
-        if (reconnectAttempts.current < maxReconnectAttempts) {
-          const delay = Math.pow(2, reconnectAttempts.current) * 1000;
-          console.log(`Attempting to reconnect in ${delay}ms (attempt ${reconnectAttempts.current + 1})`);
-
-          reconnectTimeoutRef.current = setTimeout(() => {
-            reconnectAttempts.current++;
-            if (symbol) {
-              connectWebSocket();
-            }
-          }, delay);
-        } else {
-          setStatus('Connection Failed - Max retries exceeded');
-        }
-      };
-
-      wsRef.current.onerror = (error) => {
-        console.error('WebSocket error:', error);
-        setStatus('Connection Error');
-      };
-
-    } catch (error) {
-      console.error('Error creating WebSocket:', error);
-      setStatus('Connection Failed');
-    }
-  };
-
-  const disconnectWebSocket = () => {
-    if (reconnectTimeoutRef.current) {
-      clearTimeout(reconnectTimeoutRef.current);
-      reconnectTimeoutRef.current = null;
-    }
-
-    if (wsRef.current) {
-      wsRef.current.close(1000, 'Component unmounting');
-      wsRef.current = null;
-    }
-  };
-
-  const handleWebSocketMessage = (data) => {
-    console.log('Processing message:', data.type);
-
-    switch (data.type) {
-      case 'connected':
-        setStatus('Ready for Replay');
-        break;
-
-      case 'bar':
-        setCurrentBar(data.bar);
-        setIsPlaying(true);
-        setIsPaused(false);
-
-        if (onReplayData) {
-          console.log('Calling onReplayData with:', data.bar);
-          onReplayData(data.bar);
-        }
-
-        const timestamp = new Date(data.bar.timestamp).toLocaleString();
-        setStatus(`Playing - ${timestamp}`);
-        break;
-
-      case 'paused':
-        setIsPaused(true);
-        setStatus('Paused');
-        break;
-
-      case 'resumed':
-        setIsPaused(false);
-        setStatus('Playing');
-        break;
-
-      case 'stopped':
-        setIsPlaying(false);
-        setIsPaused(false);
-        setCurrentBar(null);
-        setStatus('Stopped');
-        break;
-
-      case 'finished':
-        setIsPlaying(false);
-        setIsPaused(false);
-        setStatus('Replay Completed');
-        break;
-
-      case 'error':
-        setStatus(`Error: ${data.message}`);
-        setIsPlaying(false);
-        setIsPaused(false);
-        console.error('Replay error:', data.message);
-        break;
-
-      case 'heartbeat':
-        break;
-
-      default:
-        console.log('Unknown message type:', data.type);
-    }
-
-    if (onReplayStatusChange) {
-      onReplayStatusChange({
-        isPlaying: data.type === 'bar' ? true : isPlaying,
-        isPaused: data.type === 'paused',
-        status: data.type,
-        currentBar: data.bar || currentBar
-      });
-    }
-  };
-
-  const sendCommand = (command, additionalData = {}) => {
-    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-      const message = {
-        command,
-        symbol,
-        timeframe,
-        speed,
-        ...additionalData
-      };
-
-      console.log('Sending command:', message);
-      wsRef.current.send(JSON.stringify(message));
-      return true;
+    if (isWebSocketConnected) {
+      setStatus('Ready for Replay');
     } else {
-      console.error('WebSocket not connected, state:', wsRef.current?.readyState);
-      setStatus('Not Connected');
-      return false;
+      setStatus('Disconnected');
+      setIsPlaying(false);
+      setIsPaused(false);
     }
-  };
+  }, [isWebSocketConnected]);
 
   const formatDateTimeForBackend = (dateTimeLocal) => {
     if (!dateTimeLocal) return '';
@@ -222,41 +55,48 @@ const ReplayControls = ({
   };
 
   const handlePlay = () => {
-    if (!isConnected) {
-      console.log('Not connected, attempting to connect...');
-      connectWebSocket();
-      setTimeout(() => {
-        if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-          handlePlay();
-        }
-      }, 1000);
+    if (!isWebSocketConnected) {
+      console.log('Not connected, attempting to reconnect...');
+      if (onReconnect) {
+        onReconnect();
+      }
       return;
     }
 
-    const commandData = {};
+    const commandData = { speed };
     if (startDate) {
-      commandData.start_date = formatDateTimeForBackend(startDate);
+      const formattedDate = formatDateTimeForBackend(startDate);
+      commandData.start_date = formattedDate;
+      
+      // Notify parent about replay start date
+      if (onReplayStartDateChange) {
+        onReplayStartDateChange(formattedDate);
+      }
     }
 
-    if (sendCommand('start', commandData)) {
+    if (sendWebSocketCommand('start', commandData)) {
       setStatus('Starting replay...');
+      setIsPlaying(true);
+      setIsPaused(false);
     }
   };
 
   const handlePause = () => {
-    if (sendCommand('pause')) {
+    if (sendWebSocketCommand('pause')) {
       setStatus('Pausing...');
+      setIsPaused(true);
     }
   };
 
   const handleResume = () => {
-    if (sendCommand('resume')) {
+    if (sendWebSocketCommand('resume')) {
       setStatus('Resuming...');
+      setIsPaused(false);
     }
   };
 
   const handleStop = () => {
-    if (sendCommand('stop')) {
+    if (sendWebSocketCommand('stop')) {
       setIsPlaying(false);
       setIsPaused(false);
       setCurrentBar(null);
@@ -268,25 +108,54 @@ const ReplayControls = ({
     setSpeed(newSpeed);
     console.log('Speed changed to:', newSpeed);
 
-    if (isPlaying && !isPaused) {
-      const commandData = {};
+    // If currently playing, restart with new speed
+    if (isPlaying && !isPaused && isWebSocketConnected) {
+      const commandData = { speed: newSpeed };
       if (startDate) {
-        commandData.start_date = startDate;
+        commandData.start_date = formatDateTimeForBackend(startDate);
       }
-      sendCommand('start', commandData);
+      sendWebSocketCommand('start', commandData);
     }
+  };
+
+  const handleStartDateChange = (e) => {
+    const newStartDate = e.target.value;
+    setStartDate(newStartDate);
+    
+    // If we have a start date, notify parent immediately
+    if (newStartDate && onReplayStartDateChange) {
+      const formattedDate = formatDateTimeForBackend(newStartDate);
+      onReplayStartDateChange(formattedDate);
+    }
+  };
+
+  const getConnectionStatusClass = () => {
+    if (!isWebSocketConnected) return 'disconnected';
+    if (isPlaying && !isPaused) return 'playing';
+    if (isPaused) return 'paused';
+    return 'connected';
+  };
+
+  const getStatusDisplay = () => {
+    if (!isWebSocketConnected) return 'Disconnected';
+    if (isPlaying && isPaused) return 'Paused';
+    if (isPlaying) return 'Playing';
+    return 'Ready';
   };
 
   return (
     <div className="replay-controls">
       <div className="controls-header">
-        <h3>Replay Controls - {symbol} ({timeframe})</h3>
-        <div className={`connection-status ${isConnected ? 'connected' : 'disconnected'}`}>
-          {status}
+        <h3>Replay Controls</h3>
+        <div className={`connection-status ${getConnectionStatusClass()}`}>
+          <span className="status-indicator">
+            {isWebSocketConnected ? '🟢' : '🔴'}
+          </span>
+          {getStatusDisplay()}
         </div>
       </div>
 
-      <div className="controls-row">
+      <div className="controls-section">
         {/* Date Selection */}
         <div className="control-group">
           <label htmlFor="start-date">Start Date & Time:</label>
@@ -294,18 +163,20 @@ const ReplayControls = ({
             id="start-date"
             type="datetime-local"
             value={startDate}
-            onChange={(e) => setStartDate(e.target.value)}
+            onChange={handleStartDateChange}
             disabled={isPlaying && !isPaused}
+            className="datetime-input"
           />
         </div>
 
         {/* Speed Selection */}
         <div className="control-group">
-          <label htmlFor="speed">Speed:</label>
+          <label htmlFor="speed">Playback Speed:</label>
           <select
             id="speed"
             value={speed}
             onChange={(e) => handleSpeedChange(parseFloat(e.target.value))}
+            className="speed-select"
           >
             {speedOptions.map(option => (
               <option key={option.value} value={option.value}>
@@ -316,54 +187,74 @@ const ReplayControls = ({
         </div>
       </div>
 
-      <div className="controls-row">
-        {/* Playback Controls */}
-        <div className="playback-controls">
-          {!isPlaying ? (
-            <button
-              className="control-btn play-btn"
-              onClick={handlePlay}
-              disabled={!symbol}
-            >
-              ▶️ Play
-            </button>
-          ) : (
-            <>
-              {!isPaused ? (
-                <button
-                  className="control-btn pause-btn"
-                  onClick={handlePause}
-                >
-                  ⏸️ Pause
-                </button>
-              ) : (
-                <button
-                  className="control-btn resume-btn"
-                  onClick={handleResume}
-                >
-                  ▶️ Resume
-                </button>
-              )}
+      {/* Playback Controls */}
+      <div className="playback-controls">
+        {!isPlaying ? (
+          <button
+            className="control-btn play-btn primary"
+            onClick={handlePlay}
+            disabled={!symbol || !isWebSocketConnected}
+            title="Start replay"
+          >
+            ▶️ Play
+          </button>
+        ) : (
+          <div className="active-controls">
+            {!isPaused ? (
               <button
-                className="control-btn stop-btn"
-                onClick={handleStop}
+                className="control-btn pause-btn"
+                onClick={handlePause}
+                title="Pause replay"
               >
-                ⏹️ Stop
+                ⏸️ Pause
               </button>
-            </>
-          )}
-
-          {/* Connection status button */}
-          {!isConnected && (
+            ) : (
+              <button
+                className="control-btn resume-btn primary"
+                onClick={handleResume}
+                title="Resume replay"
+              >
+                ▶️ Resume
+              </button>
+            )}
             <button
-              className="control-btn connect-btn"
-              onClick={connectWebSocket}
-              disabled={wsRef.current?.readyState === WebSocket.CONNECTING}
+              className="control-btn stop-btn"
+              onClick={handleStop}
+              title="Stop replay"
             >
-              🔄 Reconnect
+              ⏹️ Stop
             </button>
-          )}
+          </div>
+        )}
+
+        {/* Connection Controls */}
+        {!isWebSocketConnected && (
+          <button
+            className="control-btn connect-btn"
+            onClick={onReconnect}
+            title="Reconnect to server"
+          >
+            🔄 Reconnect
+          </button>
+        )}
+      </div>
+
+      {/* Symbol and Timeframe Display */}
+      <div className="replay-info">
+        <div className="info-row">
+          <span className="info-label">Symbol:</span>
+          <span className="info-value">{symbol || 'None'}</span>
         </div>
+        <div className="info-row">
+          <span className="info-label">Timeframe:</span>
+          <span className="info-value">{timeframe}</span>
+        </div>
+        {speed !== 1.0 && (
+          <div className="info-row">
+            <span className="info-label">Speed:</span>
+            <span className="info-value speed-indicator">{speed}x</span>
+          </div>
+        )}
       </div>
 
       {/* Current Bar Info */}
@@ -371,23 +262,47 @@ const ReplayControls = ({
         <div className="current-bar-info">
           <h4>Current Bar</h4>
           <div className="bar-details">
-            <span>Time: {new Date(currentBar.timestamp).toLocaleString()}</span>
-            <span>O: {currentBar.open.toFixed(4)}</span>
-            <span>H: {currentBar.high.toFixed(4)}</span>
-            <span>L: {currentBar.low.toFixed(4)}</span>
-            <span>C: {currentBar.close.toFixed(4)}</span>
-            <span>V: {currentBar.volume.toLocaleString()}</span>
+            <div className="bar-time">
+              {new Date(currentBar.timestamp).toLocaleString()}
+            </div>
+            <div className="ohlc-data">
+              <span>O: <strong>{currentBar.open.toFixed(4)}</strong></span>
+              <span>H: <strong>{currentBar.high.toFixed(4)}</strong></span>
+              <span>L: <strong>{currentBar.low.toFixed(4)}</strong></span>
+              <span>C: <strong>{currentBar.close.toFixed(4)}</strong></span>
+            </div>
+            <div className="volume-data">
+              Volume: <strong>{currentBar.volume.toLocaleString()}</strong>
+            </div>
           </div>
         </div>
       )}
 
-      {/* Debug Info */}
-      <div className="debug-info" style={{ fontSize: '12px', color: '#666', marginTop: '10px' }}>
-        <div>WebSocket State: {wsRef.current?.readyState || 'null'}</div>
-        <div>Connected: {isConnected.toString()}</div>
-        <div>Playing: {isPlaying.toString()}</div>
-        <div>Paused: {isPaused.toString()}</div>
-      </div>
+      {/* Help Text */}
+      {!isPlaying && isWebSocketConnected && (
+        <div className="help-text">
+          <small>
+            💡 Select a start date and click Play to begin replay. 
+            Leave date empty to start from the beginning of available data.
+          </small>
+        </div>
+      )}
+
+      {/* Debug Info (only in development) */}
+      {process.env.NODE_ENV === 'development' && (
+        <div className="debug-info">
+          <details>
+            <summary>Debug Info</summary>
+            <div className="debug-details">
+              <div>WebSocket Connected: {isWebSocketConnected.toString()}</div>
+              <div>Is Playing: {isPlaying.toString()}</div>
+              <div>Is Paused: {isPaused.toString()}</div>
+              <div>Current Speed: {speed}x</div>
+              <div>Start Date: {startDate || 'Not set'}</div>
+            </div>
+          </details>
+        </div>
+      )}
     </div>
   );
 };

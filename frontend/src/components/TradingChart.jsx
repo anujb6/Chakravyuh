@@ -10,7 +10,8 @@ const TradingChart = ({
   timeframe,
   onTimeframeChange,
   isReplayMode = false,
-  replayData = null
+  replayData = null,
+  replayStartDate = null // Add this prop to receive replay start date
 }) => {
   const chartContainerRef = useRef();
   const chartRef = useRef();
@@ -18,9 +19,11 @@ const TradingChart = ({
   const volumeSeriesRef = useRef();
   const resizeObserverRef = useRef();
   const [chartReady, setChartReady] = useState(false);
+  const [historicalData, setHistoricalData] = useState([]); // Store all historical data
   const [replayDataHistory, setReplayDataHistory] = useState([]);
   const [autoScroll, setAutoScroll] = useState(true);
   const [userInteracted, setUserInteracted] = useState(false);
+  const [replayStartTime, setReplayStartTime] = useState(null);
 
   const timeframes = [
     { value: '1h', label: '1H' },
@@ -171,28 +174,64 @@ const TradingChart = ({
     return () => clearTimeout(timeoutId);
   }, [chartReady, handleResize]);
 
+  // Fetch historical data for both live and replay modes
   useEffect(() => {
-    if (!chartReady || !symbol || !timeframe || isReplayMode) return;
+    if (!chartReady || !symbol || !timeframe) return;
 
     console.log('Fetching chart data for:', symbol, timeframe);
     fetchChartData();
-  }, [chartReady, symbol, timeframe, isReplayMode]);
+  }, [chartReady, symbol, timeframe]);
 
+  // Handle replay mode initialization
   useEffect(() => {
-    if (!chartReady || !isReplayMode) return;
+    if (!chartReady || !isReplayMode) {
+      // If exiting replay mode, show full historical data
+      if (!isReplayMode && historicalData.length > 0) {
+        console.log('Exiting replay mode, showing full historical data');
+        updateChart(historicalData);
+      }
+      return;
+    }
 
     console.log('Initializing replay mode');
     setAutoScroll(true);
     setUserInteracted(false);
-    
     setReplayDataHistory([]);
     
-    if (candlestickSeriesRef.current && volumeSeriesRef.current) {
-      candlestickSeriesRef.current.setData([]);
-      volumeSeriesRef.current.setData([]);
-    }
-  }, [chartReady, isReplayMode]);
+    // When entering replay mode, we need to wait for replay start date
+    // The chart will be updated when replayStartDate is set
+  }, [chartReady, isReplayMode, historicalData]);
 
+  // Handle replay start date change
+  useEffect(() => {
+    if (!chartReady || !isReplayMode || !replayStartDate || !historicalData.length) return;
+
+    console.log('Setting up replay with start date:', replayStartDate);
+    
+    const startTime = new Date(replayStartDate).getTime();
+    setReplayStartTime(startTime);
+    
+    // Filter historical data up to the replay start date
+    const preReplayData = historicalData.filter(bar => {
+      const barTime = new Date(bar.time).getTime();
+      return barTime < startTime;
+    });
+
+    console.log(`Showing ${preReplayData.length} historical bars before replay start`);
+    
+    // Update chart with historical data up to replay start point
+    updateChart(preReplayData);
+    
+    // Position chart to show the replay start point
+    if (chartRef.current && preReplayData.length > 0) {
+      setTimeout(() => {
+        chartRef.current.timeScale().scrollToRealTime();
+      }, 100);
+    }
+    
+  }, [chartReady, isReplayMode, replayStartDate, historicalData]);
+
+  // Handle new replay data
   useEffect(() => {
     if (!chartReady || !isReplayMode || !replayData) return;
 
@@ -207,7 +246,12 @@ const TradingChart = ({
 
       if (data && data.data) {
         console.log('Fetched chart data:', data.data.length, 'bars');
-        updateChart(data.data);
+        setHistoricalData(data.data);
+        
+        // If not in replay mode, show all data immediately
+        if (!isReplayMode) {
+          updateChart(data.data);
+        }
       }
     } catch (error) {
       console.error('Error fetching chart data:', error);
@@ -215,7 +259,7 @@ const TradingChart = ({
   };
 
   const updateChart = useCallback((data) => {
-    if (!candlestickSeriesRef.current || !volumeSeriesRef.current) return;
+    if (!candlestickSeriesRef.current || !volumeSeriesRef.current || !data.length) return;
 
     const candlestickData = data.map(bar => ({
       time: new Date(bar.time).getTime() / 1000,
@@ -248,6 +292,7 @@ const TradingChart = ({
 
     const time = new Date(barData.timestamp).getTime() / 1000;
 
+    // Add to replay history
     setReplayDataHistory(prev => {
       const newHistory = [...prev, barData];
       return newHistory;
@@ -268,10 +313,11 @@ const TradingChart = ({
     };
 
     try {
+      // Update the chart with new replay data
       candlestickSeriesRef.current.update(candlestickBar);
-      
       volumeSeriesRef.current.update(volumeBar);
 
+      // Auto-scroll to latest data if enabled
       if (chartRef.current && autoScroll && !userInteracted) {
         chartRef.current.timeScale().scrollToRealTime();
       }
@@ -301,6 +347,15 @@ const TradingChart = ({
     }
   };
 
+  const getHistoricalBarsCount = () => {
+    if (!isReplayMode || !replayStartTime || !historicalData.length) return 0;
+    
+    return historicalData.filter(bar => {
+      const barTime = new Date(bar.time).getTime();
+      return barTime < replayStartTime;
+    }).length;
+  };
+
   return (
     <div className="trading-chart-maximized">
       {/* Timeframe Selector */}
@@ -320,7 +375,7 @@ const TradingChart = ({
                 🔄 REPLAY MODE
               </span>
               <span className="replay-bar-count">
-                Bars: {replayDataHistory.length}
+                Historical: {getHistoricalBarsCount()} | Replay: {replayDataHistory.length}
               </span>
               {/* Auto-scroll controls */}
               <button 

@@ -11,6 +11,7 @@ function App() {
   const [isReplayMode, setIsReplayMode] = useState(false);
   const [replayData, setReplayData] = useState(null);
   const [replayStatus, setReplayStatus] = useState(null);
+  const [replayStartDate, setReplayStartDate] = useState(null); // Add this state
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   
   const [isWebSocketConnected, setIsWebSocketConnected] = useState(false);
@@ -28,6 +29,7 @@ function App() {
     setIsReplayMode(false);
     setReplayData(null);
     setReplayStatus(null);
+    setReplayStartDate(null); // Reset replay start date
   }, []);
 
   const handleTimeframeChange = useCallback((timeframe) => {
@@ -36,6 +38,7 @@ function App() {
       setIsReplayMode(false);
       setReplayData(null);
       setReplayStatus(null);
+      setReplayStartDate(null); // Reset replay start date
     }
   }, [isReplayMode]);
 
@@ -52,7 +55,14 @@ function App() {
     if (status.status === 'stopped' || status.status === 'finished') {
       setIsReplayMode(false);
       setReplayData(null);
+      setReplayStartDate(null); // Reset replay start date
     }
+  }, []);
+
+  // Add handler for replay start date
+  const handleReplayStartDateChange = useCallback((startDate) => {
+    console.log('Replay start date changed:', startDate);
+    setReplayStartDate(startDate);
   }, []);
 
   const connectWebSocket = useCallback(() => {
@@ -119,6 +129,12 @@ function App() {
       case 'connected':
         break;
 
+      case 'replay_started': // Add handler for replay started event
+        if (data.start_date) {
+          handleReplayStartDateChange(data.start_date);
+        }
+        break;
+
       case 'bar':
         handleReplayData(data.bar);
         handleReplayStatusChange({
@@ -178,7 +194,7 @@ function App() {
       default:
         console.log('Unknown message type:', data.type);
     }
-  }, [handleReplayData, handleReplayStatusChange]);
+  }, [handleReplayData, handleReplayStatusChange, handleReplayStartDateChange]);
 
   useEffect(() => {
     if (isReplayMode && selectedSymbol && !isWebSocketConnected) {
@@ -203,6 +219,7 @@ function App() {
       setIsReplayMode(false);
       setReplayData(null);
       setReplayStatus(null);
+      setReplayStartDate(null); // Reset replay start date
     } else {
       setIsReplayMode(true);
     }
@@ -309,6 +326,7 @@ function App() {
                     timeframe={selectedTimeframe}
                     onReplayData={handleReplayData}
                     onReplayStatusChange={handleReplayStatusChange}
+                    onReplayStartDateChange={handleReplayStartDateChange} // Pass the handler
                     isWebSocketConnected={isWebSocketConnected}
                     sendWebSocketCommand={sendWebSocketCommand}
                     onReconnect={connectWebSocket}
@@ -328,6 +346,14 @@ function App() {
                           {formatStatusDisplay(replayStatus.status)}
                         </span>
                       </div>
+                      {replayStartDate && (
+                        <div className="status-row">
+                          <span>Start:</span>
+                          <span className="status-value">
+                            {new Date(replayStartDate).toLocaleString()}
+                          </span>
+                        </div>
+                      )}
                       {replayStatus.currentBar && (
                         <>
                           <div className="status-row">
@@ -361,6 +387,7 @@ function App() {
               onTimeframeChange={handleTimeframeChange}
               isReplayMode={isReplayMode}
               replayData={replayData}
+              replayStartDate={replayStartDate} // Pass replay start date
             />
           ) : (
             <div className="no-symbol-selected-compact">
