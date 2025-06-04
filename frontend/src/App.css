@@ -1,4 +1,4 @@
-/* App.css - Maximized Chart Layout */
+/* App.css - Maximum Chart Layout */
 
 * {
   margin: 0;
@@ -20,31 +20,32 @@ body {
   background-color: #0d1421;
 }
 
+/* Reduced header height from 50px to 40px */
 .app-header-compact {
-  height: 50px;
+  height: 40px;
   background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
   border-bottom: 1px solid #2a2a3e;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 15px;
+  padding: 0 12px; /* Reduced padding */
   flex-shrink: 0;
 }
 
 .header-left {
   display: flex;
   align-items: center;
-  gap: 15px;
+  gap: 12px; /* Reduced gap */
 }
 
 .sidebar-toggle {
   background: #2a2a3e;
   border: 1px solid #3a3a4e;
   color: #ffffff;
-  padding: 8px 12px;
+  padding: 6px 10px; /* Reduced padding */
   border-radius: 4px;
   cursor: pointer;
-  font-size: 14px;
+  font-size: 13px; /* Reduced font size */
   transition: all 0.2s ease;
 }
 
@@ -54,7 +55,7 @@ body {
 }
 
 .app-header-compact h1 {
-  font-size: 18px;
+  font-size: 16px; /* Reduced from 18px */
   font-weight: 600;
   color: #ffffff;
 }
@@ -62,36 +63,36 @@ body {
 .header-symbol-info {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px; /* Reduced gap */
 }
 
 .symbol-display {
   background: #2a4a5e;
   color: #26a69a;
-  padding: 4px 8px;
+  padding: 3px 6px; /* Reduced padding */
   border-radius: 4px;
   font-weight: 600;
-  font-size: 14px;
+  font-size: 13px; /* Reduced font size */
 }
 
 .timeframe-display {
   background: #3a3a4e;
   color: #ffffff;
-  padding: 4px 8px;
+  padding: 3px 6px; /* Reduced padding */
   border-radius: 4px;
-  font-size: 12px;
+  font-size: 11px; /* Reduced font size */
 }
 
 .header-right {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px; /* Reduced gap */
 }
 
 .mode-badge {
-  padding: 4px 12px;
-  border-radius: 15px;
-  font-size: 12px;
+  padding: 3px 10px; /* Reduced padding */
+  border-radius: 12px; /* Reduced border radius */
+  font-size: 11px; /* Reduced font size */
   font-weight: 600;
   text-transform: uppercase;
 }
@@ -108,9 +109,9 @@ body {
 }
 
 .status-badge {
-  padding: 4px 8px;
+  padding: 3px 6px; /* Reduced padding */
   border-radius: 4px;
-  font-size: 11px;
+  font-size: 10px; /* Reduced font size */
   font-weight: 500;
   text-transform: uppercase;
 }
@@ -130,15 +131,17 @@ body {
   color: #ffffff;
 }
 
+/* Adjusted layout height calculation - removed footer height */
 .app-layout-maximized {
   display: flex;
   flex: 1;
-  height: calc(100vh - 75px); 
+  height: calc(100vh - 58px); /* Reduced from 75px (40px header + 18px footer) */
   overflow: hidden;
 }
 
+/* Reduced sidebar width from 280px to 240px */
 .sidebar-compact {
-  width: 280px;
+  width: 240px;
   background: #1a1a2e;
   border-right: 1px solid #2a2a3e;
   display: flex;
@@ -155,8 +158,9 @@ body {
   overflow: hidden;
 }
 
+/* Reduced sidebar section padding */
 .sidebar-section {
-  padding: 15px;
+  padding: 12px; /* Reduced from 15px */
   border-bottom: 1px solid #2a2a3e;
 }
 
@@ -166,10 +170,10 @@ body {
 
 .mode-toggle-btn {
   width: 100%;
-  padding: 12px;
+  padding: 10px; /* Reduced from 12px */
   border: none;
   border-radius: 6px;
-  font-size: 14px;
+  font-size: 13px; /* Reduced font size */
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -194,22 +198,22 @@ body {
 }
 
 .replay-status-compact h4 {
-  font-size: 14px;
-  margin-bottom: 10px;
+  font-size: 13px; /* Reduced font size */
+  margin-bottom: 8px; /* Reduced margin */
   color: #ffffff;
 }
 
 .status-grid {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 5px; /* Reduced gap */
 }
 
 .status-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 12px;
+  font-size: 11px; /* Reduced font size */
 }
 
 .status-row span:first-child {
@@ -234,12 +238,16 @@ body {
   color: #f44336;
 }
 
+/* Main content now takes full available space */
 .main-content-maximized {
   flex: 1;
   background: #0d1421;
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  /* Remove any padding/margin that might reduce chart space */
+  padding: 0;
+  margin: 0;
 }
 
 .no-symbol-selected-compact {
@@ -253,103 +261,105 @@ body {
 .placeholder-content-compact {
   text-align: center;
   max-width: 500px;
-  padding: 40px;
+  padding: 30px; /* Reduced padding */
 }
 
 .placeholder-content-compact h2 {
-  font-size: 28px;
-  margin-bottom: 16px;
+  font-size: 24px; /* Reduced font size */
+  margin-bottom: 14px; /* Reduced margin */
   color: #ffffff;
 }
 
 .placeholder-content-compact p {
-  font-size: 16px;
+  font-size: 15px; /* Reduced font size */
   color: #888;
-  margin-bottom: 30px;
+  margin-bottom: 25px; /* Reduced margin */
   line-height: 1.5;
 }
 
 .quick-features {
   display: flex;
   justify-content: center;
-  gap: 20px;
+  gap: 15px; /* Reduced gap */
   flex-wrap: wrap;
 }
 
 .quick-features span {
   background: #2a2a3e;
-  padding: 8px 16px;
-  border-radius: 20px;
-  font-size: 12px;
+  padding: 6px 12px; /* Reduced padding */
+  border-radius: 16px; /* Reduced border radius */
+  font-size: 11px; /* Reduced font size */
   color: #ffffff;
   font-weight: 500;
 }
 
+/* Reduced footer height from 25px to 18px */
 .app-footer-compact {
-  height: 25px;
+  height: 18px;
   background: #1a1a2e;
   border-top: 1px solid #2a2a3e;
   display: flex;
   align-items: center;
-  padding: 0 15px;
+  padding: 0 12px; /* Reduced padding */
   flex-shrink: 0;
 }
 
 .footer-content-compact {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 11px;
+  gap: 6px; /* Reduced gap */
+  font-size: 10px; /* Reduced font size */
   color: #666;
 }
 
+/* Symbol selector optimizations */
 .symbol-selector {
   color: #ffffff;
 }
 
 .symbol-selector .selector-header h3 {
-  font-size: 16px;
-  margin-bottom: 8px;
+  font-size: 14px; /* Reduced font size */
+  margin-bottom: 6px; /* Reduced margin */
 }
 
 .symbol-selector .symbol-count {
-  font-size: 11px;
+  font-size: 10px; /* Reduced font size */
   color: #888;
-  margin-bottom: 15px;
+  margin-bottom: 12px; /* Reduced margin */
 }
 
 .current-selection {
-  margin-bottom: 15px;
+  margin-bottom: 12px; /* Reduced margin */
 }
 
 .selected-symbol strong {
   color: #26a69a;
-  font-size: 16px;
+  font-size: 15px; /* Reduced font size */
 }
 
 .symbol-details {
   display: flex;
-  gap: 10px;
-  font-size: 11px;
+  gap: 8px; /* Reduced gap */
+  font-size: 10px; /* Reduced font size */
   color: #888;
-  margin-top: 4px;
+  margin-top: 3px; /* Reduced margin */
 }
 
 .dropdown-container {
   position: relative;
-  margin-bottom: 15px;
+  margin-bottom: 12px; /* Reduced margin */
 }
 
 .dropdown-header {
   background: #2a2a3e;
   border: 1px solid #3a3a4e;
-  padding: 10px;
+  padding: 8px; /* Reduced padding */
   border-radius: 4px;
   cursor: pointer;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 14px;
+  font-size: 13px; /* Reduced font size */
 }
 
 .dropdown-header:hover {
@@ -374,12 +384,12 @@ body {
   border-top: none;
   border-radius: 0 0 4px 4px;
   z-index: 1000;
-  max-height: 300px;
+  max-height: 250px; /* Reduced max height */
   overflow-y: auto;
 }
 
 .search-container {
-  padding: 10px;
+  padding: 8px; /* Reduced padding */
   border-bottom: 1px solid #3a3a4e;
 }
 
@@ -388,9 +398,9 @@ body {
   background: #1a1a2e;
   border: 1px solid #3a3a4e;
   color: #ffffff;
-  padding: 8px;
+  padding: 6px; /* Reduced padding */
   border-radius: 4px;
-  font-size: 12px;
+  font-size: 11px; /* Reduced font size */
 }
 
 .search-input:focus {
@@ -399,12 +409,12 @@ body {
 }
 
 .symbol-list {
-  max-height: 200px;
+  max-height: 180px; /* Reduced max height */
   overflow-y: auto;
 }
 
 .symbol-item {
-  padding: 10px;
+  padding: 8px; /* Reduced padding */
   cursor: pointer;
   border-bottom: 1px solid #3a3a4e;
   transition: background-color 0.2s ease;
@@ -421,39 +431,39 @@ body {
 
 .symbol-name {
   font-weight: 600;
-  font-size: 14px;
-  margin-bottom: 4px;
+  font-size: 13px; /* Reduced font size */
+  margin-bottom: 3px; /* Reduced margin */
 }
 
 .symbol-meta {
   display: flex;
   justify-content: space-between;
-  font-size: 11px;
+  font-size: 10px; /* Reduced font size */
   color: #888;
   margin-bottom: 2px;
 }
 
 .date-range {
-  font-size: 10px;
+  font-size: 9px; /* Reduced font size */
   color: #666;
 }
 
 .symbol-stats h4 {
-  font-size: 14px;
-  margin-bottom: 10px;
+  font-size: 13px; /* Reduced font size */
+  margin-bottom: 8px; /* Reduced margin */
   color: #ffffff;
 }
 
 .stats-grid {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 5px; /* Reduced gap */
 }
 
 .stat-item {
   display: flex;
   justify-content: space-between;
-  font-size: 12px;
+  font-size: 11px; /* Reduced font size */
 }
 
 .stat-item label {
@@ -470,9 +480,9 @@ body {
   background: #2a2a3e;
   border: 1px solid #3a3a4e;
   color: #ffffff;
-  padding: 8px 12px;
+  padding: 6px 10px; /* Reduced padding */
   border-radius: 4px;
-  font-size: 12px;
+  font-size: 11px; /* Reduced font size */
   cursor: pointer;
   transition: all 0.2s ease;
 }
@@ -482,17 +492,17 @@ body {
   border-color: #4a4a5e;
 }
 
-
+/* Replay controls optimizations */
 .replay-controls .controls-header h3 {
-  font-size: 14px;
-  margin-bottom: 8px;
+  font-size: 13px; /* Reduced font size */
+  margin-bottom: 6px; /* Reduced margin */
 }
 
 .connection-status {
-  font-size: 11px;
-  padding: 4px 8px;
+  font-size: 10px; /* Reduced font size */
+  padding: 3px 6px; /* Reduced padding */
   border-radius: 4px;
-  margin-bottom: 10px;
+  margin-bottom: 8px; /* Reduced margin */
 }
 
 .connection-status.connected {
@@ -506,18 +516,18 @@ body {
 }
 
 .controls-row {
-  margin-bottom: 10px;
+  margin-bottom: 8px; /* Reduced margin */
 }
 
 .control-group {
-  margin-bottom: 8px;
+  margin-bottom: 6px; /* Reduced margin */
 }
 
 .control-group label {
   display: block;
-  font-size: 11px;
+  font-size: 10px; /* Reduced font size */
   color: #888;
-  margin-bottom: 4px;
+  margin-bottom: 3px; /* Reduced margin */
 }
 
 .control-group input,
@@ -526,22 +536,22 @@ body {
   background: #2a2a3e;
   border: 1px solid #3a3a4e;
   color: #ffffff;
-  padding: 6px;
+  padding: 5px; /* Reduced padding */
   border-radius: 4px;
-  font-size: 12px;
+  font-size: 11px; /* Reduced font size */
 }
 
 .playback-controls {
   display: flex;
-  gap: 8px;
+  gap: 6px; /* Reduced gap */
 }
 
 .control-btn {
   flex: 1;
-  padding: 8px;
+  padding: 6px; /* Reduced padding */
   border: none;
   border-radius: 4px;
-  font-size: 12px;
+  font-size: 11px; /* Reduced font size */
   cursor: pointer;
   transition: all 0.2s ease;
 }
@@ -562,22 +572,37 @@ body {
 }
 
 .current-bar-info h4 {
-  font-size: 12px;
-  margin-bottom: 6px;
+  font-size: 11px; /* Reduced font size */
+  margin-bottom: 5px; /* Reduced margin */
 }
 
 .bar-details {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
-  font-size: 10px;
+  gap: 3px; /* Reduced gap */
+  font-size: 9px; /* Reduced font size */
 }
 
 .bar-details span {
   background: #2a2a3e;
-  padding: 2px 6px;
+  padding: 2px 5px; /* Reduced padding */
   border-radius: 3px;
   color: #ffffff;
+}
+
+/* Connection badge styling */
+.connection-badge {
+  padding: 2px 4px;
+  border-radius: 50%;
+  font-size: 10px;
+}
+
+.connection-badge.connected {
+  color: #4caf50;
+}
+
+.connection-badge.disconnected {
+  color: #f44336;
 }
 
 @keyframes pulse {
@@ -587,7 +612,7 @@ body {
 }
 
 ::-webkit-scrollbar {
-  width: 6px;
+  width: 4px; /* Reduced scrollbar width */
 }
 
 ::-webkit-scrollbar-track {
@@ -596,29 +621,46 @@ body {
 
 ::-webkit-scrollbar-thumb {
   background: #3a3a4e;
-  border-radius: 3px;
+  border-radius: 2px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
   background: #4a4a5e;
 }
 
+/* Responsive adjustments */
 @media (max-width: 1200px) {
   .sidebar-compact {
-    width: 260px;
+    width: 220px; /* Further reduced */
   }
 }
 
 @media (max-width: 768px) {
   .sidebar-compact {
-    width: 240px;
+    width: 200px; /* Further reduced */
   }
   
   .app-header-compact h1 {
-    font-size: 16px;
+    font-size: 14px;
   }
   
   .header-symbol-info {
     display: none;
+  }
+  
+  .app-header-compact {
+    height: 35px; /* Even smaller on mobile */
+    padding: 0 8px;
+  }
+  
+  .app-layout-maximized {
+    height: calc(100vh - 53px); /* Adjusted for smaller header */
+  }
+}
+
+/* Additional optimization for ultra-wide screens */
+@media (min-width: 1600px) {
+  .sidebar-compact {
+    width: 260px; /* Slightly larger sidebar on very wide screens */
   }
 }

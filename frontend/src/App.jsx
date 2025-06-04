@@ -11,36 +11,74 @@ function App() {
   const [isReplayMode, setIsReplayMode] = useState(false);
   const [replayData, setReplayData] = useState(null);
   const [replayStatus, setReplayStatus] = useState(null);
-  const [replayStartDate, setReplayStartDate] = useState(null); // Add this state
+  const [replayStartDate, setReplayStartDate] = useState(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  
+
+  // Add loading states
+  const [isSymbolLoading, setIsSymbolLoading] = useState(false);
+  const [availableSymbols, setAvailableSymbols] = useState([]);
+  const [symbolLoadError, setSymbolLoadError] = useState(null);
+
   const [isWebSocketConnected, setIsWebSocketConnected] = useState(false);
   const wsRef = useRef(null);
   const reconnectTimeoutRef = useRef(null);
   const reconnectAttempts = useRef(0);
   const maxReconnectAttempts = 5;
 
-  const handleSymbolChange = useCallback((symbol) => {
-    if (wsRef.current) {
-      wsRef.current.close();
-    }
-    
-    setSelectedSymbol(symbol);
-    setIsReplayMode(false);
-    setReplayData(null);
-    setReplayStatus(null);
-    setReplayStartDate(null); // Reset replay start date
+  // Load available symbols on component mount
+  useEffect(() => {
+    const loadSymbols = async () => {
+      setIsSymbolLoading(true);
+      setSymbolLoadError(null);
+
+      try {
+        const response = await fetch('http://localhost:8000/symbols');
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const symbols = await response.json();
+        setAvailableSymbols(symbols);
+      } catch (error) {
+        console.error('Error loading symbols:', error);
+        setSymbolLoadError(error.message);
+        // Fallback to common symbols if API fails
+        setAvailableSymbols(['BTCUSDT', 'ETHUSDT', 'ADAUSDT', 'SOLUSDT']);
+      } finally {
+        setIsSymbolLoading(false);
+      }
+    };
+
+    loadSymbols();
   }, []);
 
-  const handleTimeframeChange = useCallback((timeframe) => {
-    setSelectedTimeframe(timeframe);
-    if (isReplayMode) {
+  const handleSymbolChange = useCallback((symbol) => {
+    // Only close WebSocket if we're not in replay mode or if replay is stopped
+    if (wsRef.current && (!isReplayMode || (replayStatus && replayStatus.status === 'stopped'))) {
+      wsRef.current.close();
+    }
+
+    setSelectedSymbol(symbol);
+
+    // Only reset replay mode if not currently playing
+    if (!isReplayMode || (replayStatus && ['stopped', 'finished', 'error'].includes(replayStatus.status))) {
       setIsReplayMode(false);
       setReplayData(null);
       setReplayStatus(null);
-      setReplayStartDate(null); // Reset replay start date
+      setReplayStartDate(null);
     }
-  }, [isReplayMode]);
+  }, [isReplayMode, replayStatus]);
+
+  const handleTimeframeChange = useCallback((timeframe) => {
+    setSelectedTimeframe(timeframe);
+
+    // Only reset replay if not currently playing
+    if (isReplayMode && replayStatus && ['stopped', 'finished', 'error'].includes(replayStatus.status)) {
+      setIsReplayMode(false);
+      setReplayData(null);
+      setReplayStatus(null);
+      setReplayStartDate(null);
+    }
+  }, [isReplayMode, replayStatus]);
 
   const handleReplayData = useCallback((barData) => {
     setReplayData(barData);
@@ -51,15 +89,15 @@ function App() {
 
   const handleReplayStatusChange = useCallback((status) => {
     setReplayStatus(status);
-    
+
     if (status.status === 'stopped' || status.status === 'finished') {
-      setIsReplayMode(false);
+      // Don't automatically exit replay mode, just update status
+      // Let user manually exit if they want
       setReplayData(null);
-      setReplayStartDate(null); // Reset replay start date
+      setReplayStartDate(null);
     }
   }, []);
 
-  // Add handler for replay start date
   const handleReplayStartDateChange = useCallback((startDate) => {
     console.log('Replay start date changed:', startDate);
     setReplayStartDate(startDate);
@@ -67,7 +105,7 @@ function App() {
 
   const connectWebSocket = useCallback(() => {
     if (!selectedSymbol) return;
-    
+
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
       return;
     }
@@ -102,7 +140,8 @@ function App() {
         console.log('WebSocket closed:', event.code, event.reason);
         setIsWebSocketConnected(false);
 
-        if (isReplayMode && reconnectAttempts.current < maxReconnectAttempts) {
+        // Only attempt reconnection if in replay mode and not manually closed
+        if (isReplayMode && event.code !== 1000 && reconnectAttempts.current < maxReconnectAttempts) {
           const delay = Math.pow(2, reconnectAttempts.current) * 1000;
           console.log(`Attempting to reconnect in ${delay}ms (attempt ${reconnectAttempts.current + 1})`);
 
@@ -129,7 +168,7 @@ function App() {
       case 'connected':
         break;
 
-      case 'replay_started': // Add handler for replay started event
+      case 'replay_started':
         if (data.start_date) {
           handleReplayStartDateChange(data.start_date);
         }
@@ -200,34 +239,39 @@ function App() {
     if (isReplayMode && selectedSymbol && !isWebSocketConnected) {
       connectWebSocket();
     }
-    
+
     return () => {
-      if (!isReplayMode && wsRef.current) {
-        wsRef.current.close();
-      }
       if (reconnectTimeoutRef.current) {
         clearTimeout(reconnectTimeoutRef.current);
       }
     };
   }, [isReplayMode, selectedSymbol, isWebSocketConnected, connectWebSocket]);
 
-  const toggleReplayMode = () => {
+  const toggleReplayMode = useCallback(() => {
     if (isReplayMode) {
-      if (wsRef.current) {
-        wsRef.current.close();
+      // Send stop command before closing WebSocket if replay is active
+      if (replayStatus && ['playing', 'paused'].includes(replayStatus.status)) {
+        sendWebSocketCommand('stop');
       }
-      setIsReplayMode(false);
-      setReplayData(null);
-      setReplayStatus(null);
-      setReplayStartDate(null); // Reset replay start date
+
+      // Give a moment for the stop command to be sent
+      setTimeout(() => {
+        if (wsRef.current) {
+          wsRef.current.close(1000, 'User exited replay mode'); // Normal closure
+        }
+        setIsReplayMode(false);
+        setReplayData(null);
+        setReplayStatus(null);
+        setReplayStartDate(null);
+      }, 100);
     } else {
       setIsReplayMode(true);
     }
-  };
+  }, [isReplayMode, replayStatus]);
 
   const formatStatusDisplay = (status) => {
     if (!status) return 'Unknown';
-    
+
     const statusMap = {
       'connected': 'Connected',
       'playing': 'Playing',
@@ -236,7 +280,7 @@ function App() {
       'finished': 'Completed',
       'error': 'Error'
     };
-    
+
     return statusMap[status] || status;
   };
 
@@ -258,12 +302,36 @@ function App() {
     }
   }, [selectedSymbol, selectedTimeframe]);
 
+  // Retry symbol loading function
+  const retrySymbolLoading = useCallback(() => {
+    const loadSymbols = async () => {
+      setIsSymbolLoading(true);
+      setSymbolLoadError(null);
+
+      try {
+        const response = await fetch('http://localhost:8000/symbols');
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const symbols = await response.json();
+        setAvailableSymbols(symbols);
+      } catch (error) {
+        console.error('Error loading symbols:', error);
+        setSymbolLoadError(error.message);
+      } finally {
+        setIsSymbolLoading(false);
+      }
+    };
+
+    loadSymbols();
+  }, []);
+
   return (
     <div className="App">
       {/* Header */}
       <header className="app-header-compact">
         <div className="header-left">
-          <button 
+          <button
             className="sidebar-toggle"
             onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
           >
@@ -277,7 +345,7 @@ function App() {
             </div>
           )}
         </div>
-        
+
         <div className="header-right">
           <span className={`mode-badge ${isReplayMode ? 'replay' : 'live'}`}>
             {isReplayMode ? '🔄 REPLAY' : '📊 CHART'}
@@ -304,7 +372,11 @@ function App() {
                 <SymbolSelector
                   selectedSymbol={selectedSymbol}
                   onSymbolChange={handleSymbolChange}
-                  disabled={isReplayMode}
+                  disabled={isReplayMode && replayStatus && ['playing', 'paused'].includes(replayStatus.status)}
+                  availableSymbols={availableSymbols}
+                  isLoading={isSymbolLoading}
+                  error={symbolLoadError}
+                  onRetry={retrySymbolLoading}
                 />
               </div>
 
@@ -326,10 +398,11 @@ function App() {
                     timeframe={selectedTimeframe}
                     onReplayData={handleReplayData}
                     onReplayStatusChange={handleReplayStatusChange}
-                    onReplayStartDateChange={handleReplayStartDateChange} // Pass the handler
+                    onReplayStartDateChange={handleReplayStartDateChange}
                     isWebSocketConnected={isWebSocketConnected}
                     sendWebSocketCommand={sendWebSocketCommand}
                     onReconnect={connectWebSocket}
+                    currentBar={replayStatus?.currentBar || null} // Add this line
                   />
                 </div>
               )}
@@ -387,7 +460,7 @@ function App() {
               onTimeframeChange={handleTimeframeChange}
               isReplayMode={isReplayMode}
               replayData={replayData}
-              replayStartDate={replayStartDate} // Pass replay start date
+              replayStartDate={replayStartDate}
             />
           ) : (
             <div className="no-symbol-selected-compact">
