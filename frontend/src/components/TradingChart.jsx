@@ -350,37 +350,6 @@ const TradingChart = ({
           handleTimeframeClick={handleTimeframeClick}
           isReplayMode={isReplayMode}
         />
-
-        {/* Chart Info */}
-        <div className="chart-info">
-          {isReplayMode && (
-            <>
-              <span className="replay-indicator">
-                🔄 REPLAY MODE
-              </span>
-              <span className="replay-bar-count">
-                Historical: {getHistoricalBarsCount()} | Replay: {replayDataHistory.length}
-              </span>
-              {/* Auto-scroll controls */}
-              <button 
-                className={`auto-scroll-btn ${autoScroll ? 'active' : ''}`}
-                onClick={toggleAutoScroll}
-                title={autoScroll ? 'Disable auto-scroll' : 'Enable auto-scroll'}
-              >
-                {autoScroll ? '🔒 Auto' : '🔓 Manual'}
-              </button>
-              {!autoScroll && (
-                <button 
-                  className="scroll-to-latest-btn"
-                  onClick={scrollToLatest}
-                  title="Scroll to latest data"
-                >
-                  ⏭️ Latest
-                </button>
-              )}
-            </>
-          )}
-        </div>
       </div>
 
       {/* Chart Container */}
