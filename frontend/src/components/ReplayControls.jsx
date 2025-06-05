@@ -9,7 +9,8 @@ const ReplayControls = ({
   isWebSocketConnected = true,
   sendWebSocketCommand,
   onReconnect,
-  currentBar=null
+  currentBar = null,
+  replayStatus = null // Add this prop to receive the parent's replay status
 }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
@@ -26,16 +27,46 @@ const ReplayControls = ({
     { value: 10.0, label: '10x' }
   ];
 
+  // Sync local state with parent's replayStatus when component mounts or replayStatus changes
+  useEffect(() => {
+    if (replayStatus) {
+      const isCurrentlyPlaying = ['playing', 'starting'].includes(replayStatus.status);
+      const isCurrentlyPaused = replayStatus.status === 'paused';
+      
+      setIsPlaying(isCurrentlyPlaying || isCurrentlyPaused);
+      setIsPaused(isCurrentlyPaused);
+      
+      // Update status display
+      const statusMap = {
+        'playing': 'Playing',
+        'paused': 'Paused',
+        'stopped': 'Stopped',
+        'finished': 'Finished',
+        'error': 'Error',
+        'starting': 'Starting...'
+      };
+      setStatus(statusMap[replayStatus.status] || 'Ready');
+    } else {
+      setIsPlaying(false);
+      setIsPaused(false);
+      setStatus('Ready');
+    }
+  }, [replayStatus]);
+
   // Update local state based on WebSocket connection status
   useEffect(() => {
     if (isWebSocketConnected) {
-      setStatus('Ready for Replay');
+      if (!replayStatus || replayStatus.status === 'stopped') {
+        setStatus('Ready for Replay');
+      }
     } else {
       setStatus('Disconnected');
-      setIsPlaying(false);
-      setIsPaused(false);
+      if (!replayStatus || !['playing', 'paused'].includes(replayStatus.status)) {
+        setIsPlaying(false);
+        setIsPaused(false);
+      }
     }
-  }, [isWebSocketConnected]);
+  }, [isWebSocketConnected, replayStatus]);
 
   const formatDateTimeForBackend = (dateTimeLocal) => {
     if (!dateTimeLocal) return '';
@@ -302,6 +333,7 @@ const ReplayControls = ({
             <div>Is Paused: {isPaused.toString()}</div>
             <div>Current Speed: {speed}x</div>
             <div>Start Date: {startDate || 'Not set'}</div>
+            <div>Replay Status: {replayStatus?.status || 'None'}</div>
           </div>
         </details>
       </div>

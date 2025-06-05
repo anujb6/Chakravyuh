@@ -402,7 +402,8 @@ function App() {
                     isWebSocketConnected={isWebSocketConnected}
                     sendWebSocketCommand={sendWebSocketCommand}
                     onReconnect={connectWebSocket}
-                    currentBar={replayStatus?.currentBar || null} // Add this line
+                    currentBar={replayStatus?.currentBar || null}
+                    replayStatus={replayStatus}
                   />
                 </div>
               )}
