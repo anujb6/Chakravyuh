@@ -1,5 +1,4 @@
 // frontend/src/components/TradingChart.js
-
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { createChart, ColorType } from 'lightweight-charts';
 import './TradingChart.css';
@@ -11,7 +10,7 @@ const TradingChart = ({
   onTimeframeChange,
   isReplayMode = false,
   replayData = null,
-  replayStartDate = null // Add this prop to receive replay start date
+  replayStartDate = null
 }) => {
   const chartContainerRef = useRef();
   const chartRef = useRef();
@@ -19,7 +18,7 @@ const TradingChart = ({
   const volumeSeriesRef = useRef();
   const resizeObserverRef = useRef();
   const [chartReady, setChartReady] = useState(false);
-  const [historicalData, setHistoricalData] = useState([]); // Store all historical data
+  const [historicalData, setHistoricalData] = useState([]);
   const [replayDataHistory, setReplayDataHistory] = useState([]);
   const [autoScroll, setAutoScroll] = useState(true);
   const [userInteracted, setUserInteracted] = useState(false);
@@ -174,7 +173,6 @@ const TradingChart = ({
     return () => clearTimeout(timeoutId);
   }, [chartReady, handleResize]);
 
-  // Fetch historical data for both live and replay modes
   useEffect(() => {
     if (!chartReady || !symbol || !timeframe) return;
 
@@ -182,10 +180,8 @@ const TradingChart = ({
     fetchChartData();
   }, [chartReady, symbol, timeframe]);
 
-  // Handle replay mode initialization
   useEffect(() => {
     if (!chartReady || !isReplayMode) {
-      // If exiting replay mode, show full historical data
       if (!isReplayMode && historicalData.length > 0) {
         console.log('Exiting replay mode, showing full historical data');
         updateChart(historicalData);
@@ -198,11 +194,8 @@ const TradingChart = ({
     setUserInteracted(false);
     setReplayDataHistory([]);
     
-    // When entering replay mode, we need to wait for replay start date
-    // The chart will be updated when replayStartDate is set
   }, [chartReady, isReplayMode, historicalData]);
 
-  // Handle replay start date change
   useEffect(() => {
     if (!chartReady || !isReplayMode || !replayStartDate || !historicalData.length) return;
 
@@ -211,7 +204,6 @@ const TradingChart = ({
     const startTime = new Date(replayStartDate).getTime();
     setReplayStartTime(startTime);
     
-    // Filter historical data up to the replay start date
     const preReplayData = historicalData.filter(bar => {
       const barTime = new Date(bar.time).getTime();
       return barTime < startTime;
@@ -219,10 +211,8 @@ const TradingChart = ({
 
     console.log(`Showing ${preReplayData.length} historical bars before replay start`);
     
-    // Update chart with historical data up to replay start point
     updateChart(preReplayData);
     
-    // Position chart to show the replay start point
     if (chartRef.current && preReplayData.length > 0) {
       setTimeout(() => {
         chartRef.current.timeScale().scrollToRealTime();
@@ -231,7 +221,6 @@ const TradingChart = ({
     
   }, [chartReady, isReplayMode, replayStartDate, historicalData]);
 
-  // Handle new replay data
   useEffect(() => {
     if (!chartReady || !isReplayMode || !replayData) return;
 
@@ -247,8 +236,6 @@ const TradingChart = ({
       if (data && data.data) {
         console.log('Fetched chart data:', data.data.length, 'bars');
         setHistoricalData(data.data);
-        
-        // If not in replay mode, show all data immediately
         if (!isReplayMode) {
           updateChart(data.data);
         }
@@ -292,7 +279,6 @@ const TradingChart = ({
 
     const time = new Date(barData.timestamp).getTime() / 1000;
 
-    // Add to replay history
     setReplayDataHistory(prev => {
       const newHistory = [...prev, barData];
       return newHistory;
@@ -313,11 +299,9 @@ const TradingChart = ({
     };
 
     try {
-      // Update the chart with new replay data
       candlestickSeriesRef.current.update(candlestickBar);
       volumeSeriesRef.current.update(volumeBar);
 
-      // Auto-scroll to latest data if enabled
       if (chartRef.current && autoScroll && !userInteracted) {
         chartRef.current.timeScale().scrollToRealTime();
       }

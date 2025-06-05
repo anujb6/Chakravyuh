@@ -10,7 +10,7 @@ const ReplayControls = ({
   sendWebSocketCommand,
   onReconnect,
   currentBar = null,
-  replayStatus = null // Add this prop to receive the parent's replay status
+  replayStatus = null
 }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
@@ -26,8 +26,6 @@ const ReplayControls = ({
     { value: 5.0, label: '5x' },
     { value: 10.0, label: '10x' }
   ];
-
-  // Sync local state with parent's replayStatus when component mounts or replayStatus changes
   useEffect(() => {
     if (replayStatus) {
       const isCurrentlyPlaying = ['playing', 'starting'].includes(replayStatus.status);
@@ -36,7 +34,6 @@ const ReplayControls = ({
       setIsPlaying(isCurrentlyPlaying || isCurrentlyPaused);
       setIsPaused(isCurrentlyPaused);
       
-      // Update status display
       const statusMap = {
         'playing': 'Playing',
         'paused': 'Paused',
@@ -53,7 +50,6 @@ const ReplayControls = ({
     }
   }, [replayStatus]);
 
-  // Update local state based on WebSocket connection status
   useEffect(() => {
     if (isWebSocketConnected) {
       if (!replayStatus || replayStatus.status === 'stopped') {
