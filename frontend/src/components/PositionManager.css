@@ -1,0 +1,421 @@
+/* PositionManager.css */
+.position-manager {
+  background: #1e1e1e;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 16px;
+  border: 1px solid #333;
+}
+
+/* Account Summary */
+.account-summary {
+  margin-bottom: 16px;
+}
+
+.account-summary h4 {
+  color: #fff;
+  margin: 0 0 8px 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.summary-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 6px;
+}
+
+.summary-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  color: #ccc;
+}
+
+.summary-item .balance {
+  color: #4CAF50;
+  font-weight: 600;
+}
+
+.summary-item .pnl {
+  font-weight: 600;
+}
+
+.summary-item .pnl.positive {
+  color: #4CAF50;
+}
+
+.summary-item .pnl.negative {
+  color: #f44336;
+}
+
+/* Quick Actions */
+.quick-actions {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.action-btn {
+  flex: 1;
+  padding: 8px 12px;
+  border: none;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.action-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.action-btn.buy {
+  background: #4CAF50;
+  color: white;
+}
+
+.action-btn.buy:hover:not(:disabled) {
+  background: #45a049;
+}
+
+.action-btn.sell {
+  background: #f44336;
+  color: white;
+}
+
+.action-btn.sell:hover:not(:disabled) {
+  background: #da190b;
+}
+
+.action-btn.clear {
+  background: #555;
+  color: white;
+}
+
+.action-btn.clear:hover {
+  background: #666;
+}
+
+/* Order Form */
+.order-form {
+  background: #2a2a2a;
+  border-radius: 6px;
+  padding: 12px;
+  margin-bottom: 16px;
+  border: 1px solid #444;
+}
+
+.order-form h4 {
+  color: #fff;
+  margin: 0 0 12px 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.form-group label {
+  color: #bbb;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.form-group input {
+  background: #333;
+  border: 1px solid #555;
+  border-radius: 4px;
+  padding: 6px 8px;
+  color: #fff;
+  font-size: 12px;
+}
+
+.form-group input:focus {
+  outline: none;
+  border-color: #2196F3;
+}
+
+.form-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.confirm-btn {
+  flex: 1;
+  background: #2196F3;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.confirm-btn:hover {
+  background: #1976D2;
+}
+
+.cancel-btn {
+  flex: 1;
+  background: #666;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.cancel-btn:hover {
+  background: #777;
+}
+
+.current-price {
+  text-align: center;
+  color: #bbb;
+  font-size: 11px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #444;
+}
+
+/* Positions Section */
+.positions-section {
+  margin-bottom: 16px;
+}
+
+.positions-section h4 {
+  color: #fff;
+  margin: 0 0 8px 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.positions-section details summary {
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  margin-bottom: 8px;
+}
+
+.positions-list {
+  display: grid;
+  gap: 8px;
+}
+
+/* Position Cards */
+.position-card {
+  background: #2a2a2a;
+  border-radius: 6px;
+  padding: 12px;
+  border: 1px solid #444;
+}
+
+.position-card.open {
+  border-left: 3px solid #2196F3;
+}
+
+.position-card.closed {
+  opacity: 0.8;
+  border-left: 3px solid #666;
+}
+
+.position-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.position-type {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 3px;
+  text-transform: uppercase;
+}
+
+.position-type.buy {
+  background: #4CAF50;
+  color: white;
+}
+
+.position-type.sell {
+  background: #f44336;
+  color: white;
+}
+
+.position-size {
+  color: #bbb;
+  font-size: 11px;
+}
+
+.close-reason {
+  color: #999;
+  font-size: 10px;
+  font-style: italic;
+}
+
+.close-btn {
+  background: #f44336;
+  color: white;
+  border: none;
+  border-radius: 3px;
+  width: 20px;
+  height: 20px;
+  font-size: 10px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.close-btn:hover {
+  background: #da190b;
+}
+
+.position-details {
+  display: grid;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.detail-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11px;
+}
+
+.detail-row span:first-child {
+  color: #bbb;
+}
+
+.detail-row span:last-child {
+  color: #fff;
+  font-weight: 500;
+}
+
+.detail-row .pnl {
+  font-weight: 600;
+}
+
+.detail-row .pnl.positive {
+  color: #4CAF50;
+}
+
+.detail-row .pnl.negative {
+  color: #f44336;
+}
+
+.detail-row .sl {
+  color: #f44336;
+}
+
+.detail-row .tp {
+  color: #4CAF50;
+}
+
+.position-time {
+  color: #888;
+  font-size: 10px;
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid #444;
+}
+
+/* Disabled Notice */
+.disabled-notice {
+  text-align: center;
+  color: #888;
+  font-size: 12px;
+  font-style: italic;
+  padding: 20px;
+  background: #2a2a2a;
+  border-radius: 6px;
+  border: 1px solid #444;
+}
+
+/* Header Trading Info */
+.header-trading-info {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.balance-display {
+  color: #4CAF50;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.pnl-display {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.pnl-display.positive {
+  color: #4CAF50;
+}
+
+.pnl-display.negative {
+  color: #f44336;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .quick-actions {
+    flex-direction: column;
+  }
+  
+  .form-actions {
+    flex-direction: column;
+  }
+  
+  .header-trading-info {
+    flex-direction: column;
+    gap: 4px;
+  }
+}
+
+/* Scrollbar styling for positions list */
+.positions-list {
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.positions-list::-webkit-scrollbar {
+  width: 4px;
+}
+
+.positions-list::-webkit-scrollbar-track {
+  background: #1e1e1e;
+}
+
+.positions-list::-webkit-scrollbar-thumb {
+  background: #555;
+  border-radius: 2px;
+}
+
+.positions-list::-webkit-scrollbar-thumb:hover {
+  background: #666;
+}

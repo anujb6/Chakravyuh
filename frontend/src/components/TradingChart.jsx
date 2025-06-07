@@ -10,12 +10,15 @@ const TradingChart = ({
   onTimeframeChange,
   isReplayMode = false,
   replayData = null,
-  replayStartDate = null
+  replayStartDate = null,
+  positions = [], // Add positions prop
+  currentBar = null // Add currentBar prop
 }) => {
   const chartContainerRef = useRef();
   const chartRef = useRef();
   const candlestickSeriesRef = useRef();
   const volumeSeriesRef = useRef();
+  const positionMarkersRef = useRef([]);
   const resizeObserverRef = useRef();
   const [chartReady, setChartReady] = useState(false);
   const [historicalData, setHistoricalData] = useState([]);
@@ -32,6 +35,120 @@ const TradingChart = ({
     { value: '1w', label: '1W' },
     { value: '1mo', label: '1M' }
   ];
+
+  // Function to add position markers to the chart
+  const addPositionMarkers = useCallback(() => {
+    if (!candlestickSeriesRef.current || !positions.length) return;
+
+    // Clear existing markers
+    positionMarkersRef.current.forEach(marker => {
+      if (marker.remove) marker.remove();
+    });
+    positionMarkersRef.current = [];
+
+    const markers = [];
+
+    positions.forEach(position => {
+      // Entry marker
+      const entryTime = new Date(position.entryTime).getTime() / 1000;
+      
+      markers.push({
+        time: entryTime,
+        position: position.type === 'buy' ? 'belowBar' : 'aboveBar',
+        color: position.type === 'buy' ? '#26a69a' : '#ef5350',
+        shape: position.type === 'buy' ? 'arrowUp' : 'arrowDown',
+        text: `${position.type.toUpperCase()} ${position.size} @ ${position.entryPrice.toFixed(4)}`,
+        size: 1
+      });
+
+      // Exit marker (if position is closed)
+      if (position.status === 'closed' && position.exitTime) {
+        const exitTime = new Date(position.exitTime).getTime() / 1000;
+        const isProfitable = position.pnl > 0;
+        
+        markers.push({
+          time: exitTime,
+          position: position.type === 'buy' ? 'aboveBar' : 'belowBar',
+          color: isProfitable ? '#4caf50' : '#f44336',
+          shape: position.type === 'buy' ? 'arrowDown' : 'arrowUp',
+          text: `${position.closeReason || 'CLOSE'} ${position.size} @ ${position.exitPrice.toFixed(4)} (${isProfitable ? '+' : ''}${position.pnl.toFixed(2)})`,
+          size: 1
+        });
+      }
+    });
+
+    if (markers.length > 0) {
+      candlestickSeriesRef.current.setMarkers(markers);
+    }
+  }, [positions]);
+
+  // Function to add horizontal lines for stop loss and take profit
+  const addPositionLines = useCallback(() => {
+    if (!chartRef.current) return;
+
+    // Remove existing lines (if you store them in a ref)
+    // For now, we'll just create new ones - in production you'd want to manage these
+
+    positions.forEach(position => {
+      if (position.status !== 'open') return;
+
+      // Add stop loss line
+      if (position.stopLoss) {
+        const stopLossLine = {
+          price: position.stopLoss,
+          color: '#f44336',
+          lineWidth: 1,
+          lineStyle: 2, // Dashed
+          axisLabelVisible: true,
+          title: `SL: ${position.stopLoss.toFixed(4)}`
+        };
+
+        try {
+          candlestickSeriesRef.current.createPriceLine(stopLossLine);
+        } catch (error) {
+          console.log('Stop loss line creation failed:', error);
+        }
+      }
+
+      // Add take profit line
+      if (position.takeProfit) {
+        const takeProfitLine = {
+          price: position.takeProfit,
+          color: '#4caf50',
+          lineWidth: 1,
+          lineStyle: 2, // Dashed
+          axisLabelVisible: true,
+          title: `TP: ${position.takeProfit.toFixed(4)}`
+        };
+
+        try {
+          candlestickSeriesRef.current.createPriceLine(takeProfitLine);
+        } catch (error) {
+          console.log('Take profit line creation failed:', error);
+        }
+      }
+    });
+  }, [positions]);
+
+  // Function to add current price line for open positions
+  // const addCurrentPriceLine = useCallback(() => {
+  //   if (!chartRef.current || !currentBar || !positions.some(p => p.status === 'open')) return;
+
+  //   const currentPriceLine = {
+  //     price: currentBar.close,
+  //     color: '#ffffff',
+  //     lineWidth: 1,
+  //     lineStyle: 0, // Solid
+  //     axisLabelVisible: true,
+  //     title: `Current: ${currentBar.close.toFixed(4)}`
+  //   };
+
+  //   try {
+  //     candlestickSeriesRef.current.createPriceLine(currentPriceLine);
+  //   } catch (error) {
+  //     console.log('Current price line creation failed:', error);
+  //   }
+  // }, [currentBar, positions]);
 
   const handleResize = useCallback(() => {
     if (chartContainerRef.current && chartRef.current) {
@@ -162,6 +279,21 @@ const TradingChart = ({
       }
     };
   }, [symbol, handleResize, handleChartInteraction]);
+
+  // Update position markers when positions change
+  useEffect(() => {
+    if (chartReady && positions) {
+      addPositionMarkers();
+      addPositionLines();
+    }
+  }, [chartReady, positions, addPositionMarkers, addPositionLines]);
+
+  // Update current price line when current bar changes
+  // useEffect(() => {
+  //   if (chartReady && currentBar && isReplayMode) {
+  //     addCurrentPriceLine();
+  //   }
+  // }, [chartReady, currentBar, isReplayMode, addCurrentPriceLine]);
 
   useEffect(() => {
     if (!chartReady) return;
@@ -350,6 +482,15 @@ const TradingChart = ({
           handleTimeframeClick={handleTimeframeClick}
           isReplayMode={isReplayMode}
         />
+        
+        {/* Position Summary */}
+        {isReplayMode && positions && positions.length > 0 && (
+          <div className="chart-position-summary">
+            <span className="position-count">
+              Positions: {positions.filter(p => p.status === 'open').length} open, {positions.filter(p => p.status === 'closed').length} closed
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Chart Container */}
@@ -357,6 +498,26 @@ const TradingChart = ({
         ref={chartContainerRef}
         className="chart-container-maximized"
       />
+
+      {/* Chart Controls */}
+      {isReplayMode && (
+        <div className="chart-controls">
+          <button 
+            className={`auto-scroll-btn ${autoScroll ? 'active' : ''}`}
+            onClick={toggleAutoScroll}
+            title="Toggle auto-scroll"
+          >
+            {autoScroll ? '🔒' : '🔓'} Auto-scroll
+          </button>
+          <button 
+            className="scroll-latest-btn"
+            onClick={scrollToLatest}
+            title="Scroll to latest"
+          >
+            ➡️ Latest
+          </button>
+        </div>
+      )}
 
       {/* Footer with Attribution */}
       <div className="chart-footer">

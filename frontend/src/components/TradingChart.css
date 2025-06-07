@@ -7,6 +7,40 @@
   overflow: hidden;
 }
 
+/* Add to existing CSS */
+.timeframe-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 15px;
+  background: #1e222d;
+  border-bottom: 1px solid #2a2e39;
+}
+
+.chart-position-summary {
+  background: #2a2e39;
+  border-radius: 4px;
+  padding: 5px 10px;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.open-positions {
+  color: #26a69a;
+  margin-right: 12px;
+}
+
+.closed-positions {
+  color: #bbbfcc;
+}
+
+.price-line-label {
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 12px;
+  font-weight: bold;
+}
+
 .chart-header {
   min-height: 60px;
   background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);

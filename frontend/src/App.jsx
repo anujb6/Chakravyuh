@@ -4,6 +4,7 @@ import './App.css';
 import TradingChart from './components/TradingChart';
 import ReplayControls from './components/ReplayControls';
 import SymbolSelector from './components/SymbolSelector';
+import PositionManager from './components/PositionManager';
 
 function App() {
   const [selectedSymbol, setSelectedSymbol] = useState('');
@@ -23,6 +24,13 @@ function App() {
   const reconnectTimeoutRef = useRef(null);
   const reconnectAttempts = useRef(0);
   const maxReconnectAttempts = 5;
+
+  // Position management state
+  const [currentBar, setCurrentBar] = useState(null);
+  const [tradingBalance, setTradingBalance] = useState(10000);
+  const [totalPnL, setTotalPnL] = useState(0);
+
+  const [positions, setPositions] = useState([]);
 
   useEffect(() => {
     const loadSymbols = async () => {
@@ -60,6 +68,7 @@ function App() {
       setReplayData(null);
       setReplayStatus(null);
       setReplayStartDate(null);
+      setCurrentBar(null);
     }
   }, [isReplayMode, replayStatus]);
 
@@ -71,11 +80,13 @@ function App() {
       setReplayData(null);
       setReplayStatus(null);
       setReplayStartDate(null);
+      setCurrentBar(null);
     }
   }, [isReplayMode, replayStatus]);
 
   const handleReplayData = useCallback((barData) => {
     setReplayData(barData);
+    setCurrentBar(barData);
     if (!isReplayMode) {
       setIsReplayMode(true);
     }
@@ -87,12 +98,29 @@ function App() {
     if (status.status === 'stopped' || status.status === 'finished') {
       setReplayData(null);
       setReplayStartDate(null);
+      setCurrentBar(null);
     }
   }, []);
 
   const handleReplayStartDateChange = useCallback((startDate) => {
     console.log('Replay start date changed:', startDate);
     setReplayStartDate(startDate);
+  }, []);
+
+  // Position management callbacks
+  const handlePositionUpdate = useCallback((position) => {
+    console.log('Position opened:', position);
+    setPositions(prev => [...prev, position]);
+  }, []);
+
+  const handleBalanceUpdate = useCallback((newBalance, pnlChange) => {
+    setTradingBalance(newBalance);
+    setTotalPnL(prev => prev + pnlChange);
+    console.log('Balance updated:', newBalance, 'PnL change:', pnlChange);
+  }, []);
+
+  const handlePositionsChange = useCallback((newPositions) => {
+    setPositions(newPositions);
   }, []);
 
   const connectWebSocket = useCallback(() => {
@@ -252,6 +280,7 @@ function App() {
         setReplayData(null);
         setReplayStatus(null);
         setReplayStartDate(null);
+        setCurrentBar(null);
       }, 100);
     } else {
       setIsReplayMode(true);
@@ -348,6 +377,16 @@ function App() {
               {isWebSocketConnected ? '🟢' : '🔴'}
             </span>
           )}
+          {isReplayMode && (
+            <div className="header-trading-info">
+              <span className="balance-display">
+                Balance: ${tradingBalance.toFixed(2)}
+              </span>
+              <span className={`pnl-display ${totalPnL >= 0 ? 'positive' : 'negative'}`}>
+                P&L: ${totalPnL.toFixed(2)}
+              </span>
+            </div>
+          )}
         </div>
       </header>
 
@@ -392,6 +431,19 @@ function App() {
                     onReconnect={connectWebSocket}
                     currentBar={replayStatus?.currentBar || null}
                     replayStatus={replayStatus}
+                  />
+                </div>
+              )}
+
+              {/* Position Manager */}
+              {isReplayMode && (
+                <div className="sidebar-section">
+                  <PositionManager
+                    currentBar={currentBar}
+                    isReplayMode={isReplayMode}
+                    onPositionUpdate={handlePositionUpdate}
+                    onBalanceUpdate={handleBalanceUpdate}
+                    onPositionsChange={handlePositionsChange}
                   />
                 </div>
               )}
@@ -450,6 +502,8 @@ function App() {
               isReplayMode={isReplayMode}
               replayData={replayData}
               replayStartDate={replayStartDate}
+              currentBar={currentBar}
+              positions={positions}
             />
           ) : (
             <div className="no-symbol-selected-compact">
@@ -457,10 +511,10 @@ function App() {
                 <h2>Select a Symbol to Begin</h2>
                 <p>Choose a trading symbol from the sidebar to view charts and start replay analysis</p>
                 <div className="quick-features">
-                  <span>📊 Real-time Charts</span>
                   <span>🔄 Historical Replay</span>
                   <span>⏯️ Playback Controls</span>
                   <span>📈 Multiple Timeframes</span>
+                  <span>💼 Paper Trading</span>
                 </div>
               </div>
             </div>
@@ -480,6 +534,12 @@ function App() {
           )}
           <span>•</span>
           <span>Historical Market Data Analysis</span>
+          {isReplayMode && (
+            <>
+              <span>•</span>
+              <span>Paper Trading Mode</span>
+            </>
+          )}
         </div>
       </footer>
     </div>
