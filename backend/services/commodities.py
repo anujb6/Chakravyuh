@@ -85,9 +85,8 @@ class CommoditiesService:
         try:
             if start_date:
                 start_dt = self._parse_datetime_with_tz(start_date)
-                end_dt = start_dt + timedelta(days=365)
 
-                df = self.data_repo.get_symbol_data_range(symbol, str(start_dt), str(end_dt), timeframe)
+                df = self.data_repo.get_symbol_data_range(symbol=symbol, start_date=str(start_dt), end_date=None, timeframe=timeframe)
             else:
                 df = self.data_repo.get_symbol_data(symbol, timeframe)
 

@@ -38,7 +38,7 @@ function App() {
       setSymbolLoadError(null);
 
       try {
-        const response = await fetch('http://localhost:8000/symbols');
+        const response = await fetch('http://localhost:8000/commodities/symbols');
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }

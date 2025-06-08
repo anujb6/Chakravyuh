@@ -66,7 +66,11 @@ class CommoditiesRepository:
                 return None
             
             start = pd.to_datetime(start_date)
-            end = pd.to_datetime(end_date)
+
+            if end_date == None:
+                end = df.index.max().tz_convert('UTC')
+            else:
+                end = pd.to_datetime(end_date)
             
             filtered_df = df.loc[start:end]
             print(filtered_df.head())

@@ -17,8 +17,10 @@ const TradingChart = ({
   const chartContainerRef = useRef();
   const chartRef = useRef();
   const candlestickSeriesRef = useRef();
-  const volumeSeriesRef = useRef();
+  // const volumeSeriesRef = useRef();
   const positionMarkersRef = useRef([]);
+  const priceLinesRef = useRef([]); // Add reference to track price lines
+  const positionLinesRef = useRef([]); // Add reference to track position entry/exit lines
   const resizeObserverRef = useRef();
   const [chartReady, setChartReady] = useState(false);
   const [historicalData, setHistoricalData] = useState([]);
@@ -36,62 +38,97 @@ const TradingChart = ({
     { value: '1mo', label: '1M' }
   ];
 
-  // Function to add position markers to the chart
   const addPositionMarkers = useCallback(() => {
     if (!candlestickSeriesRef.current || !positions.length) return;
 
-    // Clear existing markers
-    positionMarkersRef.current.forEach(marker => {
-      if (marker.remove) marker.remove();
-    });
-    positionMarkersRef.current = [];
-
-    const markers = [];
+    // Clear existing position lines
+    clearPositionEntryExitLines();
 
     positions.forEach(position => {
-      // Entry marker
-      const entryTime = new Date(position.entryTime).getTime() / 1000;
-      
-      markers.push({
-        time: entryTime,
-        position: position.type === 'buy' ? 'belowBar' : 'aboveBar',
-        color: position.type === 'buy' ? '#26a69a' : '#ef5350',
-        shape: position.type === 'buy' ? 'arrowUp' : 'arrowDown',
-        text: `${position.type.toUpperCase()} ${position.size} @ ${position.entryPrice.toFixed(4)}`,
-        size: 1
-      });
+      // Add entry line (green for buy, red for sell)
+      const entryLineColor = position.type === 'buy' ? '#26a69a' : '#ef5350';
+      const entryLine = {
+        price: position.entryPrice,
+        color: entryLineColor,
+        lineWidth: 2,
+        lineStyle: 0, // Solid line
+        axisLabelVisible: true,
+        title: `${position.type.toUpperCase()} @ ${position.entryPrice.toFixed(4)}`
+      };
 
-      // Exit marker (if position is closed)
-      if (position.status === 'closed' && position.exitTime) {
-        const exitTime = new Date(position.exitTime).getTime() / 1000;
+      try {
+        const priceLine = candlestickSeriesRef.current.createPriceLine(entryLine);
+        positionLinesRef.current.push(priceLine);
+      } catch (error) {
+        console.log('Entry line creation failed:', error);
+      }
+
+      // Add exit line if position is closed
+      if (position.status === 'closed' && position.exitPrice) {
         const isProfitable = position.pnl > 0;
+        const exitLineColor = isProfitable ? '#4caf50' : '#f44336';
         
-        markers.push({
-          time: exitTime,
-          position: position.type === 'buy' ? 'aboveBar' : 'belowBar',
-          color: isProfitable ? '#4caf50' : '#f44336',
-          shape: position.type === 'buy' ? 'arrowDown' : 'arrowUp',
-          text: `${position.closeReason || 'CLOSE'} ${position.size} @ ${position.exitPrice.toFixed(4)} (${isProfitable ? '+' : ''}${position.pnl.toFixed(2)})`,
-          size: 1
-        });
+        const exitLine = {
+          price: position.exitPrice,
+          color: exitLineColor,
+          lineWidth: 2,
+          lineStyle: 0, // Solid line
+          axisLabelVisible: true,
+          title: `${position.closeReason || 'CLOSE'} @ ${position.exitPrice.toFixed(4)} (${isProfitable ? '+' : ''}${position.pnl.toFixed(2)})`
+        };
+
+        try {
+          const priceLine = candlestickSeriesRef.current.createPriceLine(exitLine);
+          positionLinesRef.current.push(priceLine);
+        } catch (error) {
+          console.log('Exit line creation failed:', error);
+        }
       }
     });
-
-    if (markers.length > 0) {
-      candlestickSeriesRef.current.setMarkers(markers);
-    }
   }, [positions]);
 
-  // Function to add horizontal lines for stop loss and take profit
+  // Clear existing price lines
+  const clearPositionLines = useCallback(() => {
+    if (priceLinesRef.current.length > 0) {
+      priceLinesRef.current.forEach(priceLine => {
+        try {
+          if (candlestickSeriesRef.current && priceLine) {
+            candlestickSeriesRef.current.removePriceLine(priceLine);
+          }
+        } catch (error) {
+          console.log('Error removing price line:', error);
+        }
+      });
+      priceLinesRef.current = [];
+    }
+  }, []);
+
+  // Clear position entry/exit lines
+  const clearPositionEntryExitLines = useCallback(() => {
+    if (positionLinesRef.current.length > 0) {
+      positionLinesRef.current.forEach(priceLine => {
+        try {
+          if (candlestickSeriesRef.current && priceLine) {
+            candlestickSeriesRef.current.removePriceLine(priceLine);
+          }
+        } catch (error) {
+          console.log('Error removing position line:', error);
+        }
+      });
+      positionLinesRef.current = [];
+    }
+  }, []);
+
   const addPositionLines = useCallback(() => {
-    if (!chartRef.current) return;
+    if (!chartRef.current || !candlestickSeriesRef.current) return;
 
-    // Remove existing lines (if you store them in a ref)
-    // For now, we'll just create new ones - in production you'd want to manage these
+    // Clear existing price lines first
+    clearPositionLines();
 
-    positions.forEach(position => {
-      if (position.status !== 'open') return;
+    // Only add lines for open positions
+    const openPositions = positions.filter(position => position.status === 'open');
 
+    openPositions.forEach(position => {
       // Add stop loss line
       if (position.stopLoss) {
         const stopLossLine = {
@@ -104,7 +141,8 @@ const TradingChart = ({
         };
 
         try {
-          candlestickSeriesRef.current.createPriceLine(stopLossLine);
+          const priceLine = candlestickSeriesRef.current.createPriceLine(stopLossLine);
+          priceLinesRef.current.push(priceLine);
         } catch (error) {
           console.log('Stop loss line creation failed:', error);
         }
@@ -122,33 +160,14 @@ const TradingChart = ({
         };
 
         try {
-          candlestickSeriesRef.current.createPriceLine(takeProfitLine);
+          const priceLine = candlestickSeriesRef.current.createPriceLine(takeProfitLine);
+          priceLinesRef.current.push(priceLine);
         } catch (error) {
           console.log('Take profit line creation failed:', error);
         }
       }
     });
-  }, [positions]);
-
-  // Function to add current price line for open positions
-  // const addCurrentPriceLine = useCallback(() => {
-  //   if (!chartRef.current || !currentBar || !positions.some(p => p.status === 'open')) return;
-
-  //   const currentPriceLine = {
-  //     price: currentBar.close,
-  //     color: '#ffffff',
-  //     lineWidth: 1,
-  //     lineStyle: 0, // Solid
-  //     axisLabelVisible: true,
-  //     title: `Current: ${currentBar.close.toFixed(4)}`
-  //   };
-
-  //   try {
-  //     candlestickSeriesRef.current.createPriceLine(currentPriceLine);
-  //   } catch (error) {
-  //     console.log('Current price line creation failed:', error);
-  //   }
-  // }, [currentBar, positions]);
+  }, [positions, clearPositionLines]);
 
   const handleResize = useCallback(() => {
     if (chartContainerRef.current && chartRef.current) {
@@ -218,25 +237,9 @@ const TradingChart = ({
       },
     });
 
-    const volumeSeries = chart.addHistogramSeries({
-      color: '#26a69a',
-      priceFormat: {
-        type: 'volume',
-      },
-      priceScaleId: 'volume',
-    });
-
-    chart.priceScale('volume').applyOptions({
-      scaleMargins: {
-        top: 0.85,
-        bottom: 0,
-      },
-      textColor: '#888',
-    });
-
     chart.timeScale().subscribeVisibleTimeRangeChange(handleChartInteraction);
     chart.subscribeCrosshairMove(handleChartInteraction);
-    
+
     if (chartContainerRef.current) {
       chartContainerRef.current.addEventListener('wheel', handleChartInteraction);
       chartContainerRef.current.addEventListener('mousedown', handleChartInteraction);
@@ -245,7 +248,6 @@ const TradingChart = ({
 
     chartRef.current = chart;
     candlestickSeriesRef.current = candlestickSeries;
-    volumeSeriesRef.current = volumeSeries;
     setChartReady(true);
 
     setTimeout(handleResize, 100);
@@ -262,6 +264,9 @@ const TradingChart = ({
     window.addEventListener('resize', handleResize);
 
     return () => {
+      clearPositionLines();
+      clearPositionEntryExitLines();
+
       window.removeEventListener('resize', handleResize);
 
       if (chartContainerRef.current) {
@@ -278,22 +283,14 @@ const TradingChart = ({
         chart.remove();
       }
     };
-  }, [symbol, handleResize, handleChartInteraction]);
+  }, [symbol, handleResize, handleChartInteraction, clearPositionLines]);
 
-  // Update position markers when positions change
   useEffect(() => {
     if (chartReady && positions) {
       addPositionMarkers();
       addPositionLines();
     }
   }, [chartReady, positions, addPositionMarkers, addPositionLines]);
-
-  // Update current price line when current bar changes
-  // useEffect(() => {
-  //   if (chartReady && currentBar && isReplayMode) {
-  //     addCurrentPriceLine();
-  //   }
-  // }, [chartReady, currentBar, isReplayMode, addCurrentPriceLine]);
 
   useEffect(() => {
     if (!chartReady) return;
@@ -325,32 +322,32 @@ const TradingChart = ({
     setAutoScroll(true);
     setUserInteracted(false);
     setReplayDataHistory([]);
-    
+
   }, [chartReady, isReplayMode, historicalData]);
 
   useEffect(() => {
     if (!chartReady || !isReplayMode || !replayStartDate || !historicalData.length) return;
 
     console.log('Setting up replay with start date:', replayStartDate);
-    
+
     const startTime = new Date(replayStartDate).getTime();
     setReplayStartTime(startTime);
-    
+
     const preReplayData = historicalData.filter(bar => {
       const barTime = new Date(bar.time).getTime();
       return barTime < startTime;
     });
 
     console.log(`Showing ${preReplayData.length} historical bars before replay start`);
-    
+
     updateChart(preReplayData);
-    
+
     if (chartRef.current && preReplayData.length > 0) {
       setTimeout(() => {
         chartRef.current.timeScale().scrollToRealTime();
       }, 100);
     }
-    
+
   }, [chartReady, isReplayMode, replayStartDate, historicalData]);
 
   useEffect(() => {
@@ -378,7 +375,7 @@ const TradingChart = ({
   };
 
   const updateChart = useCallback((data) => {
-    if (!candlestickSeriesRef.current || !volumeSeriesRef.current || !data.length) return;
+    if (!candlestickSeriesRef.current || !data.length) return;
 
     const candlestickData = data.map(bar => ({
       time: new Date(bar.time).getTime() / 1000,
@@ -388,15 +385,7 @@ const TradingChart = ({
       close: bar.close,
     }));
 
-    const volumeData = data.map(bar => ({
-      time: new Date(bar.time).getTime() / 1000,
-      value: bar.volume,
-      color: bar.close >= bar.open ? 'rgba(38, 166, 154, 0.4)' : 'rgba(239, 83, 80, 0.4)',
-    }));
-
     candlestickSeriesRef.current.setData(candlestickData);
-    volumeSeriesRef.current.setData(volumeData);
-
     if (chartRef.current) {
       chartRef.current.timeScale().fitContent();
     }
@@ -405,7 +394,7 @@ const TradingChart = ({
   }, [handleResize]);
 
   const updateChartWithReplayData = useCallback((barData) => {
-    if (!candlestickSeriesRef.current || !volumeSeriesRef.current) return;
+    if (!candlestickSeriesRef.current) return;
 
     console.log('Processing replay bar:', barData);
 
@@ -424,15 +413,8 @@ const TradingChart = ({
       close: barData.close,
     };
 
-    const volumeBar = {
-      time: time,
-      value: barData.volume,
-      color: barData.close >= barData.open ? 'rgba(38, 166, 154, 0.4)' : 'rgba(239, 83, 80, 0.4)',
-    };
-
     try {
       candlestickSeriesRef.current.update(candlestickBar);
-      volumeSeriesRef.current.update(volumeBar);
 
       if (chartRef.current && autoScroll && !userInteracted) {
         chartRef.current.timeScale().scrollToRealTime();
@@ -450,28 +432,6 @@ const TradingChart = ({
     }
   };
 
-  const toggleAutoScroll = () => {
-    setAutoScroll(!autoScroll);
-    setUserInteracted(!autoScroll);
-  };
-
-  const scrollToLatest = () => {
-    if (chartRef.current) {
-      chartRef.current.timeScale().scrollToRealTime();
-      setAutoScroll(true);
-      setUserInteracted(false);
-    }
-  };
-
-  const getHistoricalBarsCount = () => {
-    if (!isReplayMode || !replayStartTime || !historicalData.length) return 0;
-    
-    return historicalData.filter(bar => {
-      const barTime = new Date(bar.time).getTime();
-      return barTime < replayStartTime;
-    }).length;
-  };
-
   return (
     <div className="trading-chart-maximized">
       {/* Timeframe Selector */}
@@ -482,8 +442,6 @@ const TradingChart = ({
           handleTimeframeClick={handleTimeframeClick}
           isReplayMode={isReplayMode}
         />
-        
-        {/* Position Summary */}
         {isReplayMode && positions && positions.length > 0 && (
           <div className="chart-position-summary">
             <span className="position-count">
@@ -499,28 +457,8 @@ const TradingChart = ({
         className="chart-container-maximized"
       />
 
-      {/* Chart Controls */}
-      {isReplayMode && (
-        <div className="chart-controls">
-          <button 
-            className={`auto-scroll-btn ${autoScroll ? 'active' : ''}`}
-            onClick={toggleAutoScroll}
-            title="Toggle auto-scroll"
-          >
-            {autoScroll ? '🔒' : '🔓'} Auto-scroll
-          </button>
-          <button 
-            className="scroll-latest-btn"
-            onClick={scrollToLatest}
-            title="Scroll to latest"
-          >
-            ➡️ Latest
-          </button>
-        </div>
-      )}
-
       {/* Footer with Attribution */}
-      <div className="chart-footer">
+      {/* <div className="chart-footer">
         <div className="chart-attribution">
           <a
             href="https://www.tradingview.com"
@@ -530,7 +468,7 @@ const TradingChart = ({
             Powered by TradingView
           </a>
         </div>
-      </div>
+      </div> */}
     </div>
   );
 };
