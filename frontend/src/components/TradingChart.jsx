@@ -17,7 +17,6 @@ const TradingChart = ({
   const chartContainerRef = useRef();
   const chartRef = useRef();
   const candlestickSeriesRef = useRef();
-  // const volumeSeriesRef = useRef();
   const positionMarkersRef = useRef([]);
   const priceLinesRef = useRef([]); // Add reference to track price lines
   const positionLinesRef = useRef([]); // Add reference to track position entry/exit lines
@@ -44,7 +43,10 @@ const TradingChart = ({
     // Clear existing position lines
     clearPositionEntryExitLines();
 
-    positions.forEach(position => {
+    // Only add markers for OPEN positions
+    const openPositions = positions.filter(position => position.status === 'open');
+
+    openPositions.forEach(position => {
       // Add entry line (green for buy, red for sell)
       const entryLineColor = position.type === 'buy' ? '#26a69a' : '#ef5350';
       const entryLine = {
@@ -62,29 +64,12 @@ const TradingChart = ({
       } catch (error) {
         console.log('Entry line creation failed:', error);
       }
-
-      // Add exit line if position is closed
-      if (position.status === 'closed' && position.exitPrice) {
-        const isProfitable = position.pnl > 0;
-        const exitLineColor = isProfitable ? '#4caf50' : '#f44336';
-        
-        const exitLine = {
-          price: position.exitPrice,
-          color: exitLineColor,
-          lineWidth: 2,
-          lineStyle: 0, // Solid line
-          axisLabelVisible: true,
-          title: `${position.closeReason || 'CLOSE'} @ ${position.exitPrice.toFixed(4)} (${isProfitable ? '+' : ''}${position.pnl.toFixed(2)})`
-        };
-
-        try {
-          const priceLine = candlestickSeriesRef.current.createPriceLine(exitLine);
-          positionLinesRef.current.push(priceLine);
-        } catch (error) {
-          console.log('Exit line creation failed:', error);
-        }
-      }
     });
+
+    // If there are no open positions, clear all markers
+    if (openPositions.length === 0) {
+      clearPositionEntryExitLines();
+    }
   }, [positions]);
 
   // Clear existing price lines
@@ -125,7 +110,7 @@ const TradingChart = ({
     // Clear existing price lines first
     clearPositionLines();
 
-    // Only add lines for open positions
+    // Only add lines for OPEN positions
     const openPositions = positions.filter(position => position.status === 'open');
 
     openPositions.forEach(position => {
@@ -167,6 +152,11 @@ const TradingChart = ({
         }
       }
     });
+
+    // If there are no open positions, clear all lines
+    if (openPositions.length === 0) {
+      clearPositionLines();
+    }
   }, [positions, clearPositionLines]);
 
   const handleResize = useCallback(() => {
@@ -456,19 +446,6 @@ const TradingChart = ({
         ref={chartContainerRef}
         className="chart-container-maximized"
       />
-
-      {/* Footer with Attribution */}
-      {/* <div className="chart-footer">
-        <div className="chart-attribution">
-          <a
-            href="https://www.tradingview.com"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Powered by TradingView
-          </a>
-        </div>
-      </div> */}
     </div>
   );
 };
