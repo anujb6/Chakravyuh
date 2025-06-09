@@ -10,23 +10,21 @@ const PositionManager = ({
   onPositionsChange
 }) => {
   const [positions, setPositions] = useState([]);
-  const [balance, setBalance] = useState(10000); // Starting balance
+  const [balance, setBalance] = useState(10000);
   const [showOrderForm, setShowOrderForm] = useState(false);
-  const [orderType, setOrderType] = useState('buy'); // 'buy' or 'sell'
+  const [orderType, setOrderType] = useState('buy');
   const [orderSize, setOrderSize] = useState(100);
   const [stopLoss, setStopLoss] = useState('');
   const [takeProfit, setTakeProfit] = useState('');
   const [unrealizedPnL, setUnrealizedPnL] = useState(0);
   const [totalPnL, setTotalPnL] = useState(0);
 
-  // Pass positions to parent whenever they change
   useEffect(() => {
     if (onPositionsChange) {
       onPositionsChange(positions);
     }
   }, [positions, onPositionsChange]);
 
-  // Calculate unrealized P&L for open positions
   useEffect(() => {
     if (!currentBar || !positions.length) {
       setUnrealizedPnL(0);
@@ -48,7 +46,6 @@ const PositionManager = ({
     setUnrealizedPnL(unrealized);
   }, [currentBar, positions]);
 
-  // Check stop-loss and take-profit triggers
   useEffect(() => {
     if (!currentBar || !positions.length) return;
 
@@ -66,7 +63,6 @@ const PositionManager = ({
         let closeReason = '';
         let closePrice = currentPrice;
 
-        // Check Stop Loss
         if (position.stopLoss) {
           const slTriggered = position.type === 'buy' 
             ? currentPrice <= position.stopLoss
@@ -79,7 +75,6 @@ const PositionManager = ({
           }
         }
 
-        // Check Take Profit
         if (!shouldClose && position.takeProfit) {
           const tpTriggered = position.type === 'buy'
             ? currentPrice >= position.takeProfit
@@ -92,7 +87,6 @@ const PositionManager = ({
           }
         }
 
-        // Close position if triggered
         if (shouldClose) {
           const pnl = position.type === 'buy'
             ? (closePrice - position.entryPrice) * position.size
@@ -111,7 +105,6 @@ const PositionManager = ({
         }
       });
 
-      // Update balance if there were any closed positions
       if (balanceChange !== 0) {
         setBalance(prev => {
           const newBalance = prev + balanceChange;
@@ -133,8 +126,7 @@ const PositionManager = ({
     const currentPrice = currentBar.close;
     const currentTime = new Date(currentBar.timestamp);
     
-    // Validate order size doesn't exceed balance
-    const requiredMargin = orderSize * currentPrice * 0.1; // 10% margin requirement
+    const requiredMargin = orderSize * currentPrice * 0.1;
     if (requiredMargin > balance) {
       alert('Insufficient balance for this position size');
       return;
@@ -265,7 +257,7 @@ const PositionManager = ({
           className="action-btn clear"
           onClick={clearAllPositions}
         >
-          🗑️ Clear All
+          🗑️ Clear
         </button>
       </div>
 

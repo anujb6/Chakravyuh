@@ -3,6 +3,7 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { createChart, ColorType } from 'lightweight-charts';
 import './TradingChart.css';
 import TimeframeDropdown from './TimeframeDropdown.jsx';
+import PositionManager from './PositionManager.jsx';
 
 const TradingChart = ({
   symbol,
@@ -11,16 +12,23 @@ const TradingChart = ({
   isReplayMode = false,
   replayData = null,
   replayStartDate = null,
-  positions = [], // Add positions prop
-  currentBar = null // Add currentBar prop
+  positions = [],
+  currentBar = null
 }) => {
   const chartContainerRef = useRef();
   const chartRef = useRef();
   const candlestickSeriesRef = useRef();
   const positionMarkersRef = useRef([]);
-  const priceLinesRef = useRef([]); // Add reference to track price lines
-  const positionLinesRef = useRef([]); // Add reference to track position entry/exit lines
+  const priceLinesRef = useRef([]);
+  const positionLinesRef = useRef([]);
   const resizeObserverRef = useRef();
+
+  // Position Manager Integration States
+  const [internalPositions, setInternalPositions] = useState([]);
+  const [showPositionManager, setShowPositionManager] = useState(false);
+  const [positionManagerBalance, setPositionManagerBalance] = useState(10000);
+
+  // Existing states
   const [chartReady, setChartReady] = useState(false);
   const [historicalData, setHistoricalData] = useState([]);
   const [replayDataHistory, setReplayDataHistory] = useState([]);
@@ -37,23 +45,35 @@ const TradingChart = ({
     { value: '1mo', label: '1M' }
   ];
 
-  const addPositionMarkers = useCallback(() => {
-    if (!candlestickSeriesRef.current || !positions.length) return;
+  const handlePositionUpdate = useCallback((position) => {
+    console.log('Position updated:', position);
+  }, []);
 
-    // Clear existing position lines
+  const handleBalanceUpdate = useCallback((newBalance, change) => {
+    setPositionManagerBalance(newBalance);
+    console.log('Balance updated:', newBalance, 'Change:', change);
+  }, []);
+
+  const handlePositionsChange = useCallback((newPositions) => {
+    setInternalPositions(newPositions);
+  }, []);
+
+  const activePositions = positions.length > 0 ? positions : internalPositions;
+
+  const addPositionMarkers = useCallback(() => {
+    if (!candlestickSeriesRef.current || !activePositions.length) return;
+
     clearPositionEntryExitLines();
 
-    // Only add markers for OPEN positions
-    const openPositions = positions.filter(position => position.status === 'open');
+    const openPositions = activePositions.filter(position => position.status === 'open');
 
     openPositions.forEach(position => {
-      // Add entry line (green for buy, red for sell)
       const entryLineColor = position.type === 'buy' ? '#26a69a' : '#ef5350';
       const entryLine = {
         price: position.entryPrice,
         color: entryLineColor,
         lineWidth: 2,
-        lineStyle: 0, // Solid line
+        lineStyle: 0,
         axisLabelVisible: true,
         title: `${position.type.toUpperCase()} @ ${position.entryPrice.toFixed(4)}`
       };
@@ -66,13 +86,11 @@ const TradingChart = ({
       }
     });
 
-    // If there are no open positions, clear all markers
     if (openPositions.length === 0) {
       clearPositionEntryExitLines();
     }
-  }, [positions]);
+  }, [activePositions]);
 
-  // Clear existing price lines
   const clearPositionLines = useCallback(() => {
     if (priceLinesRef.current.length > 0) {
       priceLinesRef.current.forEach(priceLine => {
@@ -88,7 +106,6 @@ const TradingChart = ({
     }
   }, []);
 
-  // Clear position entry/exit lines
   const clearPositionEntryExitLines = useCallback(() => {
     if (positionLinesRef.current.length > 0) {
       positionLinesRef.current.forEach(priceLine => {
@@ -107,20 +124,17 @@ const TradingChart = ({
   const addPositionLines = useCallback(() => {
     if (!chartRef.current || !candlestickSeriesRef.current) return;
 
-    // Clear existing price lines first
     clearPositionLines();
 
-    // Only add lines for OPEN positions
-    const openPositions = positions.filter(position => position.status === 'open');
+    const openPositions = activePositions.filter(position => position.status === 'open');
 
     openPositions.forEach(position => {
-      // Add stop loss line
       if (position.stopLoss) {
         const stopLossLine = {
           price: position.stopLoss,
           color: '#f44336',
           lineWidth: 1,
-          lineStyle: 2, // Dashed
+          lineStyle: 2,
           axisLabelVisible: true,
           title: `SL: ${position.stopLoss.toFixed(4)}`
         };
@@ -133,13 +147,12 @@ const TradingChart = ({
         }
       }
 
-      // Add take profit line
       if (position.takeProfit) {
         const takeProfitLine = {
           price: position.takeProfit,
           color: '#4caf50',
           lineWidth: 1,
-          lineStyle: 2, // Dashed
+          lineStyle: 2,
           axisLabelVisible: true,
           title: `TP: ${position.takeProfit.toFixed(4)}`
         };
@@ -153,11 +166,10 @@ const TradingChart = ({
       }
     });
 
-    // If there are no open positions, clear all lines
     if (openPositions.length === 0) {
       clearPositionLines();
     }
-  }, [positions, clearPositionLines]);
+  }, [activePositions, clearPositionLines]);
 
   const handleResize = useCallback(() => {
     if (chartContainerRef.current && chartRef.current) {
@@ -276,11 +288,11 @@ const TradingChart = ({
   }, [symbol, handleResize, handleChartInteraction, clearPositionLines]);
 
   useEffect(() => {
-    if (chartReady && positions) {
+    if (chartReady && activePositions) {
       addPositionMarkers();
       addPositionLines();
     }
-  }, [chartReady, positions, addPositionMarkers, addPositionLines]);
+  }, [chartReady, activePositions, addPositionMarkers, addPositionLines]);
 
   useEffect(() => {
     if (!chartReady) return;
@@ -312,7 +324,6 @@ const TradingChart = ({
     setAutoScroll(true);
     setUserInteracted(false);
     setReplayDataHistory([]);
-
   }, [chartReady, isReplayMode, historicalData]);
 
   useEffect(() => {
@@ -337,7 +348,6 @@ const TradingChart = ({
         chartRef.current.timeScale().scrollToRealTime();
       }, 100);
     }
-
   }, [chartReady, isReplayMode, replayStartDate, historicalData]);
 
   useEffect(() => {
@@ -422,30 +432,84 @@ const TradingChart = ({
     }
   };
 
+  const togglePositionManager = () => {
+    setShowPositionManager(!showPositionManager);
+  };
+
   return (
     <div className="trading-chart-maximized">
-      {/* Timeframe Selector */}
-      <div className="timeframe-bar">
-        <TimeframeDropdown
-          timeframes={timeframes}
-          timeframe={timeframe}
-          handleTimeframeClick={handleTimeframeClick}
-          isReplayMode={isReplayMode}
-        />
-        {isReplayMode && positions && positions.length > 0 && (
-          <div className="chart-position-summary">
-            <span className="position-count">
-              Positions: {positions.filter(p => p.status === 'open').length} open, {positions.filter(p => p.status === 'closed').length} closed
-            </span>
-          </div>
-        )}
+      {/* Top Toolbar */}
+      <div className="chart-toolbar">
+        <div className="toolbar-left">
+          <TimeframeDropdown
+            timeframes={timeframes}
+            timeframe={timeframe}
+            handleTimeframeClick={handleTimeframeClick}
+            isReplayMode={isReplayMode}
+          />
+
+          {/* Position Manager Toggle */}
+          <button
+            className={`position-manager-toggle ${showPositionManager ? 'active' : ''}`}
+            onClick={togglePositionManager}
+            title="Toggle Position Manager"
+          >
+            <span className="icon">📈</span>
+            <span>Positions</span>
+          </button>
+        </div>
+
+        <div className="toolbar-right">
+          {isReplayMode && activePositions && activePositions.length > 0 && (
+            <div className="chart-position-summary">
+              <span className="position-count">
+                Positions: {activePositions.filter(p => p.status === 'open').length} open, {activePositions.filter(p => p.status === 'closed').length} closed
+              </span>
+              <span className="balance-display">
+                Balance: ${positionManagerBalance.toFixed(2)}
+              </span>
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* Chart Container */}
-      <div
-        ref={chartContainerRef}
-        className="chart-container-maximized"
-      />
+      {/* Main Content Area */}
+      <div className="chart-content-area">
+        {/* Chart Container */}
+        <div
+          ref={chartContainerRef}
+          className="chart-container-maximized"
+        />
+
+        {/* Position Manager Panel - ALWAYS RENDERED */}
+        <div
+          className="position-manager-panel"
+          style={{
+            display: showPositionManager ? 'flex' : 'none',  // Control visibility here
+            flexDirection: 'column'
+          }}
+        >
+          <div className="panel-header">
+            <h3>Position Manager</h3>
+            <button
+              className="panel-close"
+              onClick={() => setShowPositionManager(false)}
+              title="Close Panel"
+            >
+              ✕
+            </button>
+          </div>
+          <div className="panel-content">
+            <PositionManager
+              currentBar={currentBar}
+              isReplayMode={isReplayMode}
+              onPositionUpdate={handlePositionUpdate}
+              onBalanceUpdate={handleBalanceUpdate}
+              onPositionsChange={handlePositionsChange}
+            />
+          </div>
+        </div>
+      </div>
     </div>
   );
 };

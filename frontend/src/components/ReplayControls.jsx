@@ -154,33 +154,8 @@ const ReplayControls = ({
     }
   };
 
-  const getConnectionStatusClass = () => {
-    if (!isWebSocketConnected) return 'disconnected';
-    if (isPlaying && !isPaused) return 'playing';
-    if (isPaused) return 'paused';
-    return 'connected';
-  };
-
-  const getStatusDisplay = () => {
-    if (!isWebSocketConnected) return 'Disconnected';
-    if (isPlaying && isPaused) return 'Paused';
-    if (isPlaying) return 'Playing';
-    return 'Ready';
-  };
-
   return (
     <div style={styles.replayControls}>
-      {/* Header Section */}
-      <div style={styles.controlsHeader}>
-        <h3 style={styles.title}>Replay Controls</h3>
-        <div style={{...styles.connectionStatus, ...styles[getConnectionStatusClass()]}}>
-          <span style={styles.statusIndicator}>
-            {isWebSocketConnected ? '🟢' : '🔴'}
-          </span>
-          <span>{getStatusDisplay()}</span>
-        </div>
-      </div>
-
       {/* Controls Section */}
       <div style={styles.controlsSection}>
         <div style={styles.controlsRow}>
@@ -270,24 +245,6 @@ const ReplayControls = ({
             <span style={styles.btnIcon}>🔄</span>
             <span>Reconnect</span>
           </button>
-        )}
-      </div>
-
-      {/* Symbol and Timeframe Display */}
-      <div style={styles.replayInfo}>
-        <div style={styles.infoRow}>
-          <span style={styles.infoLabel}>Symbol:</span>
-          <span style={styles.infoValue}>{symbol || 'None'}</span>
-        </div>
-        <div style={styles.infoRow}>
-          <span style={styles.infoLabel}>Timeframe:</span>
-          <span style={styles.infoValue}>{timeframe}</span>
-        </div>
-        {speed !== 1.0 && (
-          <div style={styles.infoRow}>
-            <span style={styles.infoLabel}>Speed:</span>
-            <span style={{...styles.infoValue, ...styles.speedIndicator}}>{speed}x</span>
-          </div>
         )}
       </div>
 

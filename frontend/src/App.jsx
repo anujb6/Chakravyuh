@@ -25,7 +25,6 @@ function App() {
   const reconnectAttempts = useRef(0);
   const maxReconnectAttempts = 5;
 
-  // Position management state
   const [currentBar, setCurrentBar] = useState(null);
   const [tradingBalance, setTradingBalance] = useState(10000);
   const [totalPnL, setTotalPnL] = useState(0);
@@ -436,7 +435,7 @@ function App() {
               )}
 
               {/* Position Manager */}
-              {isReplayMode && (
+              {/* {isReplayMode && (
                 <div className="sidebar-section">
                   <PositionManager
                     currentBar={currentBar}
@@ -446,7 +445,7 @@ function App() {
                     onPositionsChange={handlePositionsChange}
                   />
                 </div>
-              )}
+              )} */}
 
               {/* Replay Status */}
               {replayStatus && (

@@ -632,3 +632,293 @@
     transition: none;
   }
 }
+
+/* TradingChart.css - Enhanced with Position Manager Integration */
+
+.trading-chart-maximized {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+  background: #0d1421;
+  color: #d1d4dc;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* Top Toolbar */
+.chart-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 16px;
+  background: #131722;
+  border-bottom: 1px solid #2a2a3e;
+  min-height: 48px;
+  flex-shrink: 0;
+}
+
+.toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* Position Manager Toggle Button */
+.position-manager-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: #1e2837;
+  border: 1px solid #2a2a3e;
+  border-radius: 4px;
+  color: #d1d4dc;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.position-manager-toggle:hover {
+  background: #2a2a3e;
+  border-color: #3a3a4e;
+}
+
+.position-manager-toggle.active {
+  background: #1976d2;
+  border-color: #1976d2;
+  color: white;
+}
+
+.position-manager-toggle .icon {
+  font-size: 14px;
+}
+
+/* Chart Position Summary */
+.chart-position-summary {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  font-size: 12px;
+  color: #8691a0;
+}
+
+.position-count {
+  padding: 4px 8px;
+  background: #1e2837;
+  border-radius: 3px;
+}
+
+.balance-display {
+  padding: 4px 8px;
+  background: #1e2837;
+  border-radius: 3px;
+  font-weight: 500;
+}
+
+/* Main Content Area */
+.chart-content-area {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  position: relative;
+}
+
+/* Chart Container */
+.chart-container-maximized {
+  flex: 1;
+  min-height: 400px;
+  background: #0d1421;
+  position: relative;
+}
+
+/* Position Manager Panel */
+.position-manager-panel {
+  width: 320px;
+  background: #131722;
+  border-left: 1px solid #2a2a3e;
+  display: flex;
+  flex-direction: column;
+  max-height: 100%;
+  flex-shrink: 0;
+}
+
+.panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background: #1e2837;
+  border-bottom: 1px solid #2a2a3e;
+  flex-shrink: 0;
+}
+
+.panel-header h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #d1d4dc;
+}
+
+.panel-close {
+  background: none;
+  border: none;
+  color: #8691a0;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 3px;
+  font-size: 16px;
+  line-height: 1;
+  transition: all 0.2s ease;
+}
+
+.panel-close:hover {
+  background: #2a2a3e;
+  color: #d1d4dc;
+}
+
+.panel-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0;
+}
+
+/* Timeframe Bar (Legacy Support) */
+.timeframe-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 16px;
+  background: #131722;
+  border-bottom: 1px solid #2a2a3e;
+  min-height: 48px;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .position-manager-panel {
+    width: 280px;
+  }
+  
+  .chart-position-summary {
+    flex-direction: column;
+    gap: 4px;
+    align-items: flex-end;
+  }
+  
+  .toolbar-left {
+    gap: 8px;
+  }
+  
+  .position-manager-toggle span:not(.icon) {
+    display: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .chart-content-area {
+    flex-direction: column;
+  }
+  
+  .position-manager-panel {
+    width: 100%;
+    max-height: 40%;
+    border-left: none;
+    border-top: 1px solid #2a2a3e;
+  }
+  
+  .chart-container-maximized {
+    min-height: 300px;
+  }
+}
+
+/* Scrollbar Styling for Panel */
+.panel-content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.panel-content::-webkit-scrollbar-track {
+  background: #131722;
+}
+
+.panel-content::-webkit-scrollbar-thumb {
+  background: #2a2a3e;
+  border-radius: 3px;
+}
+
+.panel-content::-webkit-scrollbar-thumb:hover {
+  background: #3a3a4e;
+}
+
+/* Animation for Panel */
+.position-manager-panel {
+  animation: slideIn 0.2s ease-out;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+/* Status Indicators */
+.status-indicator {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 6px;
+}
+
+.status-indicator.open {
+  background: #4caf50;
+}
+
+.status-indicator.closed {
+  background: #8691a0;
+}
+
+/* Quick Actions in Toolbar */
+.toolbar-quick-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.quick-action-btn {
+  padding: 4px 8px;
+  background: #1e2837;
+  border: 1px solid #2a2a3e;
+  border-radius: 3px;
+  color: #d1d4dc;
+  cursor: pointer;
+  font-size: 11px;
+  transition: all 0.2s ease;
+}
+
+.quick-action-btn:hover {
+  background: #2a2a3e;
+}
+
+.quick-action-btn.buy {
+  border-color: #26a69a;
+  color: #26a69a;
+}
+
+.quick-action-btn.sell {
+  border-color: #ef5350;
+  color: #ef5350;
+}
+
+.quick-action-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
