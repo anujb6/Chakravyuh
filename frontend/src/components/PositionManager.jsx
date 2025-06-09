@@ -13,7 +13,7 @@ const PositionManager = ({
   const [balance, setBalance] = useState(10000);
   const [showOrderForm, setShowOrderForm] = useState(false);
   const [orderType, setOrderType] = useState('buy');
-  const [orderSize, setOrderSize] = useState(100);
+  const [orderSize, setOrderSize] = useState(1);
   const [stopLoss, setStopLoss] = useState('');
   const [takeProfit, setTakeProfit] = useState('');
   const [unrealizedPnL, setUnrealizedPnL] = useState(0);
@@ -25,6 +25,7 @@ const PositionManager = ({
     }
   }, [positions, onPositionsChange]);
 
+  // Calculate unrealized P&L for open positions
   useEffect(() => {
     if (!currentBar || !positions.length) {
       setUnrealizedPnL(0);
@@ -36,9 +37,7 @@ const PositionManager = ({
 
     positions.forEach(position => {
       if (position.status === 'open') {
-        const pnl = position.type === 'buy' 
-          ? (currentPrice - position.entryPrice) * position.size
-          : (position.entryPrice - currentPrice) * position.size;
+        const pnl = calculatePnL(position, currentPrice);
         unrealized += pnl;
       }
     });
@@ -46,6 +45,16 @@ const PositionManager = ({
     setUnrealizedPnL(unrealized);
   }, [currentBar, positions]);
 
+  // Helper function to calculate P&L consistently
+  const calculatePnL = (position, currentPrice) => {
+    if (position.type === 'buy') {
+      return (currentPrice - position.entryPrice) * position.size;
+    } else {
+      return (position.entryPrice - currentPrice) * position.size;
+    }
+  };
+
+  // Handle stop loss and take profit triggers
   useEffect(() => {
     if (!currentBar || !positions.length) return;
 
@@ -54,7 +63,7 @@ const PositionManager = ({
 
     setPositions(prevPositions => {
       let updatedPositions = [...prevPositions];
-      let balanceChange = 0;
+      let totalBalanceChange = 0;
 
       updatedPositions.forEach((position, index) => {
         if (position.status !== 'open') return;
@@ -63,7 +72,8 @@ const PositionManager = ({
         let closeReason = '';
         let closePrice = currentPrice;
 
-        if (position.stopLoss) {
+        // Check stop loss
+        if (position.stopLoss !== null && position.stopLoss !== undefined) {
           const slTriggered = position.type === 'buy' 
             ? currentPrice <= position.stopLoss
             : currentPrice >= position.stopLoss;
@@ -75,7 +85,8 @@ const PositionManager = ({
           }
         }
 
-        if (!shouldClose && position.takeProfit) {
+        // Check take profit (only if stop loss hasn't triggered)
+        if (!shouldClose && position.takeProfit !== null && position.takeProfit !== undefined) {
           const tpTriggered = position.type === 'buy'
             ? currentPrice >= position.takeProfit
             : currentPrice <= position.takeProfit;
@@ -88,9 +99,7 @@ const PositionManager = ({
         }
 
         if (shouldClose) {
-          const pnl = position.type === 'buy'
-            ? (closePrice - position.entryPrice) * position.size
-            : (position.entryPrice - closePrice) * position.size;
+          const pnl = calculatePnL({...position, entryPrice: position.entryPrice}, closePrice);
 
           updatedPositions[index] = {
             ...position,
@@ -101,19 +110,21 @@ const PositionManager = ({
             closeReason: closeReason
           };
 
-          balanceChange += pnl;
+          totalBalanceChange += pnl;
         }
       });
 
-      if (balanceChange !== 0) {
+      // Update balance and total P&L if there were any position closures
+      if (totalBalanceChange !== 0) {
         setBalance(prev => {
-          const newBalance = prev + balanceChange;
-          setTotalPnL(prev => prev + balanceChange);
+          const newBalance = prev + totalBalanceChange;
           if (onBalanceUpdate) {
-            onBalanceUpdate(newBalance, balanceChange);
+            onBalanceUpdate(newBalance, totalBalanceChange);
           }
           return newBalance;
         });
+        
+        setTotalPnL(prev => prev + totalBalanceChange);
       }
 
       return updatedPositions;
@@ -126,10 +137,38 @@ const PositionManager = ({
     const currentPrice = currentBar.close;
     const currentTime = new Date(currentBar.timestamp);
     
-    const requiredMargin = orderSize * currentPrice * 0.1;
+    // Calculate required margin (10% of position value)
+    const positionValue = orderSize * currentPrice;
+    const requiredMargin = positionValue * 0.1;
+    
     if (requiredMargin > balance) {
-      alert('Insufficient balance for this position size');
+      alert(`Insufficient balance. Required: $${requiredMargin.toFixed(2)}, Available: $${balance.toFixed(2)}`);
       return;
+    }
+
+    // Validate stop loss and take profit levels
+    const parsedStopLoss = stopLoss ? parseFloat(stopLoss) : null;
+    const parsedTakeProfit = takeProfit ? parseFloat(takeProfit) : null;
+
+    // Basic validation for stop loss and take profit levels
+    if (orderType === 'buy') {
+      if (parsedStopLoss && parsedStopLoss >= currentPrice) {
+        alert('Stop loss must be below current price for buy orders');
+        return;
+      }
+      if (parsedTakeProfit && parsedTakeProfit <= currentPrice) {
+        alert('Take profit must be above current price for buy orders');
+        return;
+      }
+    } else {
+      if (parsedStopLoss && parsedStopLoss <= currentPrice) {
+        alert('Stop loss must be above current price for sell orders');
+        return;
+      }
+      if (parsedTakeProfit && parsedTakeProfit >= currentPrice) {
+        alert('Take profit must be below current price for sell orders');
+        return;
+      }
     }
 
     const newPosition = {
@@ -138,8 +177,8 @@ const PositionManager = ({
       size: orderSize,
       entryPrice: currentPrice,
       entryTime: currentTime.toISOString(),
-      stopLoss: stopLoss ? parseFloat(stopLoss) : null,
-      takeProfit: takeProfit ? parseFloat(takeProfit) : null,
+      stopLoss: parsedStopLoss,
+      takeProfit: parsedTakeProfit,
       status: 'open',
       pnl: 0,
       closeReason: null,
@@ -166,19 +205,18 @@ const PositionManager = ({
     setPositions(prev => {
       const updatedPositions = prev.map(position => {
         if (position.id === positionId && position.status === 'open') {
-          const pnl = position.type === 'buy'
-            ? (currentPrice - position.entryPrice) * position.size
-            : (position.entryPrice - currentPrice) * position.size;
+          const pnl = calculatePnL(position, currentPrice);
 
-          // Update balance
+          // Update balance and total P&L
           setBalance(prevBalance => {
             const newBalance = prevBalance + pnl;
-            setTotalPnL(prevTotal => prevTotal + pnl);
             if (onBalanceUpdate) {
               onBalanceUpdate(newBalance, pnl);
             }
             return newBalance;
           });
+
+          setTotalPnL(prevTotal => prevTotal + pnl);
 
           return {
             ...position,
@@ -228,6 +266,10 @@ const PositionManager = ({
               ${totalPnL.toFixed(2)}
             </span>
           </div>
+          <div className="summary-item">
+            <span>Equity:</span>
+            <span className="equity">${(balance + unrealizedPnL).toFixed(2)}</span>
+          </div>
         </div>
       </div>
 
@@ -271,7 +313,7 @@ const PositionManager = ({
               <input
                 type="number"
                 value={orderSize}
-                onChange={(e) => setOrderSize(Number(e.target.value))}
+                onChange={(e) => setOrderSize(Math.max(1, Number(e.target.value)))}
                 min="1"
                 step="1"
               />
@@ -314,6 +356,12 @@ const PositionManager = ({
           {currentBar && (
             <div className="current-price">
               Current Price: ${currentBar.close.toFixed(4)}
+              {orderSize && (
+                <div className="position-info">
+                  Position Value: ${(orderSize * currentBar.close).toFixed(2)} | 
+                  Required Margin: ${(orderSize * currentBar.close * 0.1).toFixed(2)}
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -325,11 +373,7 @@ const PositionManager = ({
           <h4>Open Positions ({openPositions.length})</h4>
           <div className="positions-list">
             {openPositions.map(position => {
-              const currentPnL = currentBar ? (
-                position.type === 'buy'
-                  ? (currentBar.close - position.entryPrice) * position.size
-                  : (position.entryPrice - currentBar.close) * position.size
-              ) : 0;
+              const currentPnL = currentBar ? calculatePnL(position, currentBar.close) : 0;
 
               return (
                 <div key={position.id} className="position-card open">
@@ -363,13 +407,13 @@ const PositionManager = ({
                         ${currentPnL.toFixed(2)}
                       </span>
                     </div>
-                    {position.stopLoss && (
+                    {position.stopLoss !== null && position.stopLoss !== undefined && (
                       <div className="detail-row">
                         <span>Stop Loss:</span>
                         <span className="sl">${position.stopLoss.toFixed(4)}</span>
                       </div>
                     )}
-                    {position.takeProfit && (
+                    {position.takeProfit !== null && position.takeProfit !== undefined && (
                       <div className="detail-row">
                         <span>Take Profit:</span>
                         <span className="tp">${position.takeProfit.toFixed(4)}</span>
