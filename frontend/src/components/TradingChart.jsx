@@ -481,11 +481,11 @@ const TradingChart = ({
           className="chart-container-maximized"
         />
 
-        {/* Position Manager Panel - ALWAYS RENDERED */}
+        {/* Position Manager Panel*/}
         <div
           className="position-manager-panel"
           style={{
-            display: showPositionManager ? 'flex' : 'none',  // Control visibility here
+            display: showPositionManager ? 'flex' : 'none', 
             flexDirection: 'column'
           }}
         >
