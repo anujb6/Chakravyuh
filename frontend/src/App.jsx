@@ -37,7 +37,7 @@ function App() {
       setSymbolLoadError(null);
 
       try {
-        const response = await fetch('http://localhost:8000/commodities/symbols');
+        const response = await fetch('http://chakravyuh.azurewebsites.net/commodities/symbols');
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
@@ -134,7 +134,7 @@ function App() {
     }
 
     try {
-      const wsUrl = `ws://localhost:8000/ws/${selectedSymbol}`;
+      const wsUrl = `ws://chakravyuh.azurewebsites.net/ws/${selectedSymbol}`;
       console.log('Connecting to:', wsUrl);
 
       wsRef.current = new WebSocket(wsUrl);
@@ -325,7 +325,7 @@ function App() {
       setSymbolLoadError(null);
 
       try {
-        const response = await fetch('http://localhost:8000/symbols');
+        const response = await fetch('http://chakravyuh.azurewebsites.net/symbols');
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
