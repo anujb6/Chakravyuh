@@ -134,7 +134,7 @@ function App() {
     }
 
     try {
-      const wsUrl = `ws://chakravyuh.azurewebsites.net/ws/${selectedSymbol}`;
+      const wsUrl = `wss://chakravyuh.azurewebsites.net/ws/${selectedSymbol}`;
       console.log('Connecting to:', wsUrl);
 
       wsRef.current = new WebSocket(wsUrl);
