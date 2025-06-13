@@ -20,6 +20,7 @@ frozendict
 multitasking
 platformdirs
 matplotlib
-ta_lib-0.6.0-cp313-cp313-win_amd64.whl
+ta-lib
+# ta_lib-0.6.0-cp313-cp313-win_amd64.whl
 fastapi
 uvicorn

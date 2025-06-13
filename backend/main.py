@@ -251,4 +251,4 @@ async def redirect_to_docs():
     return RedirectResponse(url="/api/docs")
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="localhost", port=8000, log_level="info")
+    uvicorn.run(app, port=8000, log_level="info")

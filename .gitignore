@@ -174,3 +174,5 @@ cython_debug/
 .pypirc
 
 frontend/node_modules/**
+backend/ta_lib-0.6.0-cp313-cp313-win_amd64.whl
+ta_lib-0.6.0-cp313-cp313-win_amd64.whl
