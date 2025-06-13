@@ -359,7 +359,7 @@ const TradingChart = ({
 
   const fetchChartData = async () => {
     try {
-      const response = await fetch(`http://chakravyuh.azurewebsites.net/commodities/${symbol}?timeframe=${timeframe}`);
+      const response = await fetch(`https://chakravyuh.azurewebsites.net/commodities/${symbol}?timeframe=${timeframe}`);
       const data = await response.json();
 
       if (data && data.data) {

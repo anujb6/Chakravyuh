@@ -37,7 +37,7 @@ function App() {
       setSymbolLoadError(null);
 
       try {
-        const response = await fetch('http://chakravyuh.azurewebsites.net/commodities/symbols');
+        const response = await fetch('https://chakravyuh.azurewebsites.net/commodities/symbols');
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
@@ -325,7 +325,7 @@ function App() {
       setSymbolLoadError(null);
 
       try {
-        const response = await fetch('http://chakravyuh.azurewebsites.net/symbols');
+        const response = await fetch('https://chakravyuh.azurewebsites.net/symbols');
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }

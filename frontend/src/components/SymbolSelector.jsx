@@ -21,7 +21,7 @@ const SymbolSelector = ({
   const fetchSymbols = async () => {
     try {
       setLoading(true);
-      const response = await axios.get('http://chakravyuh.azurewebsites.net/commodities/symbols');
+      const response = await axios.get('https://chakravyuh.azurewebsites.net/commodities/symbols');
       
       if (response.data && Array.isArray(response.data)) {
         setSymbols(response.data);
