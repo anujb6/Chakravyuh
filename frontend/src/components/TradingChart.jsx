@@ -4,6 +4,7 @@ import { createChart, ColorType } from 'lightweight-charts';
 import './TradingChart.css';
 import TimeframeDropdown from './TimeframeDropdown.jsx';
 import PositionManager from './PositionManager.jsx';
+import ChartManager from './ChartManager';
 
 const TradingChart = ({
   symbol,
@@ -16,19 +17,18 @@ const TradingChart = ({
   currentBar = null
 }) => {
   const chartContainerRef = useRef();
+  const chartManagerRef = useRef(null);
   const chartRef = useRef();
   const candlestickSeriesRef = useRef();
-  const positionMarkersRef = useRef([]);
   const priceLinesRef = useRef([]);
   const positionLinesRef = useRef([]);
   const resizeObserverRef = useRef();
 
-  // Position Manager Integration States
   const [internalPositions, setInternalPositions] = useState([]);
   const [showPositionManager, setShowPositionManager] = useState(false);
   const [positionManagerBalance, setPositionManagerBalance] = useState(10000);
 
-  // Existing states
+  const [isTrendlineMode, setIsTrendlineMode] = useState(false);
   const [chartReady, setChartReady] = useState(false);
   const [historicalData, setHistoricalData] = useState([]);
   const [replayDataHistory, setReplayDataHistory] = useState([]);
@@ -190,6 +190,19 @@ const TradingChart = ({
   }, [isReplayMode, userInteracted]);
 
   useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        if (chartManagerRef.current) {
+          chartManagerRef.current.deleteSelectedLine();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  useEffect(() => {
     if (!chartContainerRef.current) return;
 
     const chart = createChart(chartContainerRef.current, {
@@ -202,7 +215,7 @@ const TradingChart = ({
         horzLines: { color: '#1e2837' },
       },
       crosshair: {
-        mode: 1,
+        mode: 0,
         vertLine: {
           color: '#758696',
           width: 1,
@@ -236,6 +249,15 @@ const TradingChart = ({
         type: 'price',
         precision: 4,
         minMove: 0.0001,
+      },
+    });
+
+    chartManagerRef.current = new ChartManager({
+      chart,
+      candleSeries: candlestickSeries,
+      chartElement: chartContainerRef.current,
+      onTrendlineComplete: () => {
+        setIsTrendlineMode(false);
       },
     });
 
@@ -448,6 +470,19 @@ const TradingChart = ({
             isReplayMode={isReplayMode}
           />
 
+          <button
+            className={`trendline-toggle ${isTrendlineMode ? 'active' : ''}`}
+            onClick={() => {
+              setIsTrendlineMode(true);
+              if (chartManagerRef.current) {
+                chartManagerRef.current.setTrendlineMode(true);
+              }
+            }}
+            title="Draw Trendline"
+          >
+            ✏️ Draw Trendline
+          </button>
+
           {/* Position Manager Toggle */}
           <button
             className={`position-manager-toggle ${showPositionManager ? 'active' : ''}`}
@@ -485,7 +520,7 @@ const TradingChart = ({
         <div
           className="position-manager-panel"
           style={{
-            display: showPositionManager ? 'flex' : 'none', 
+            display: showPositionManager ? 'flex' : 'none',
             flexDirection: 'column'
           }}
         >
