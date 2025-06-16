@@ -1,20 +1,12 @@
 # backend/routers/data_router.py
 
-from fastapi import APIRouter, HTTPException, Query, WebSocket, WebSocketDisconnect
-from fastapi.responses import JSONResponse
+from fastapi import APIRouter, HTTPException, Query
 from typing import List, Optional
-import asyncio
-import json
 
 from services.commodities import CommoditiesService
 from models.market_data_response import MarketDataResponse
 from models.symbol_info import SymbolInfo
 from models.symbol_stats import SymbolStats
-from models.data_request import DataRequest
-from models.date_range_request import DateRangeRequest
-from models.error import ErrorResponse
-from models.replay_stream_message import ReplayStreamMessage
-from models.websocket_command import WebSocketCommand
 
 class CommoditiesRouter:
     def __init__(self):

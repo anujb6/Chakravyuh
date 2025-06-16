@@ -86,7 +86,7 @@ class CommoditiesRepository:
         
         hours = self.timeframe_multipliers[timeframe]
         
-        resampled = df.resample(f'{hours}H').agg({
+        resampled = df.resample(f'{hours}h').agg({
             'open': 'first',
             'high': 'max',
             'low': 'min', 
