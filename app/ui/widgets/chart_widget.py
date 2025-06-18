@@ -6,20 +6,18 @@ import json
 from datetime import datetime
 
 from PyQt5.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QSlider,
-    QComboBox, QDateEdit, QSizePolicy, QSpacerItem
+    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QComboBox,
+    QDateEdit, QSizePolicy, QSpacerItem
 )
 from PyQt5.QtCore import Qt, QThread, pyqtSignal, QTimer, QDate
-from PyQt5.QtGui import QFont
+from PyQt5.QtGui import QFont, QIcon
 from lightweight_charts.widgets import QtChart
 from services.api_client import MarketDataResponse
 
-# Configure module-level logger
 logger = logging.getLogger(__name__)
 
 
 class WebSocketThread(QThread):
-    """Thread to handle WebSocket connection for replay data"""
     data_received = pyqtSignal(dict)
     connection_status = pyqtSignal(str)
 
@@ -37,9 +35,6 @@ class WebSocketThread(QThread):
             self.loop = asyncio.new_event_loop()
             asyncio.set_event_loop(self.loop)
             self.loop.run_until_complete(self.connect_and_listen())
-        except RuntimeError as e:
-            if "Event loop stopped" not in str(e):
-                logger.exception("WebSocket thread runtime error")
         except Exception as e:
             logger.exception("WebSocket thread error")
         finally:
@@ -56,21 +51,18 @@ class WebSocketThread(QThread):
 
                 while self.running:
                     try:
-                        # Use wait_for with timeout to allow checking running status
                         message = await asyncio.wait_for(websocket.recv(), timeout=1.0)
                         if not self.running:
                             break
                         data = json.loads(message)
                         self.data_received.emit(data)
                     except asyncio.TimeoutError:
-                        # Timeout is expected, just continue the loop
                         continue
                     except websockets.exceptions.ConnectionClosed:
                         logger.info("WebSocket connection closed")
                         break
-
         except Exception as e:
-            if self.running:  # Only log if we weren't intentionally stopping
+            if self.running:
                 logger.exception("WebSocket connection error")
                 self.connection_status.emit(f"Error: {e}")
 
@@ -83,40 +75,35 @@ class WebSocketThread(QThread):
 
     def stop(self):
         self.running = False
-        
         if self.websocket and not self.websocket.close:
             try:
-                # Close the websocket connection
                 if self.loop and self.loop.is_running():
                     self.loop.call_soon_threadsafe(
                         lambda: asyncio.create_task(self.websocket.close())
                     )
             except Exception as e:
                 logger.warning(f"Failed to close websocket: {e}")
-        
-        # Stop the event loop gracefully
+
         if self.loop and self.loop.is_running():
             try:
                 self.loop.call_soon_threadsafe(self.loop.stop)
             except Exception as e:
                 logger.warning(f"Failed to stop event loop: {e}")
-        
-        # Wait for thread to finish with timeout
-        if not self.wait(3000):  # 3 second timeout
+
+        if not self.wait(3000):
             logger.warning("WebSocket thread did not stop gracefully")
-            self.terminate()  # Force terminate if needed
+            self.terminate()
 
 
 class ChartWidget(QWidget):
-    # Add signal to request data reload
-    data_reload_requested = pyqtSignal(str, str)  # symbol, timeframe
-    
+    data_reload_requested = pyqtSignal(str, str)
+
     def __init__(self):
         super().__init__()
         self.ws_thread = None
         self.current_symbol = None
         self.current_timeframe = None
-        self.original_data = None  # Store original data
+        self.original_data = None
         self.replay_data = []
         self.is_replaying = False
         self.is_paused = False
@@ -146,66 +133,73 @@ class ChartWidget(QWidget):
     def setup_replay_controls(self, parent_layout):
         controls_widget = QWidget()
         controls_layout = QHBoxLayout(controls_widget)
-        controls_layout.setContentsMargins(0, 0, 0, 0)
+        controls_layout.setContentsMargins(5, 0, 5, 0)
+        controls_layout.setSpacing(10)
 
+        # Replay label
         replay_label = QLabel("Replay:")
         replay_label.setFont(QFont("Arial", 9, QFont.Bold))
         controls_layout.addWidget(replay_label)
 
+        # Start date
         self.start_date = QDateEdit()
         self.start_date.setDate(QDate.currentDate().addDays(-30))
         self.start_date.setDisplayFormat("yyyy-MM-dd")
-        self.start_date.setMaximumWidth(120)
+        self.start_date.setCalendarPopup(True)
+        self.start_date.setMaximumWidth(130)
+        self.start_date.setToolTip("Start date for replay")
+        self.start_date.setStyleSheet("""
+            QDateEdit {
+                padding: 2px 4px;
+                border: 1px solid #ccc;
+                border-radius: 4px;
+            }
+        """)
         controls_layout.addWidget(self.start_date)
 
-        self.timeframe_combo = QComboBox()
-        self.timeframe_combo.addItems(["1m", "5m", "15m", "1h", "4h", "1d"])
-        self.timeframe_combo.setCurrentText("1h")
-        self.timeframe_combo.setMaximumWidth(80)
-        controls_layout.addWidget(self.timeframe_combo)
 
-        controls_layout.addWidget(QLabel("Speed:"))
-
-        self.speed_slider = QSlider(Qt.Horizontal)
-        self.speed_slider.setRange(1, 100)
-        self.speed_slider.setValue(10)
-        self.speed_slider.setMaximumWidth(100)
-        self.speed_slider.valueChanged.connect(self.update_speed_label)
-        controls_layout.addWidget(self.speed_slider)
-
-        self.speed_label = QLabel("1.0x")
-        self.speed_label.setMinimumWidth(40)
-        controls_layout.addWidget(self.speed_label)
+        # Button style
+        button_style = """
+            QPushButton {
+                background-color: #2c7be5;
+                color: white;
+                padding: 4px 10px;
+                border-radius: 5px;
+            }
+            QPushButton:disabled {
+                background-color: #aaa;
+                color: #eee;
+            }
+        """
 
         self.start_btn = QPushButton("Start")
         self.start_btn.clicked.connect(self.start_replay)
-        self.start_btn.setMaximumWidth(60)
+        self.start_btn.setMaximumWidth(70)
+        self.start_btn.setStyleSheet(button_style)
         controls_layout.addWidget(self.start_btn)
 
         self.pause_btn = QPushButton("Pause")
         self.pause_btn.clicked.connect(self.pause_replay)
         self.pause_btn.setEnabled(False)
-        self.pause_btn.setMaximumWidth(60)
+        self.pause_btn.setMaximumWidth(70)
+        self.pause_btn.setStyleSheet(button_style)
         controls_layout.addWidget(self.pause_btn)
 
         self.stop_btn = QPushButton("Stop")
         self.stop_btn.clicked.connect(self.stop_replay)
         self.stop_btn.setEnabled(False)
-        self.stop_btn.setMaximumWidth(60)
+        self.stop_btn.setMaximumWidth(70)
+        self.stop_btn.setStyleSheet(button_style)
         controls_layout.addWidget(self.stop_btn)
 
         controls_layout.addItem(QSpacerItem(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum))
         parent_layout.addWidget(controls_widget)
 
-    def update_speed_label(self):
-        speed = self.speed_slider.value() / 10.0
-        self.speed_label.setText(f"{speed:.1f}x")
-
     def set_data(self, data: MarketDataResponse):
         try:
             if self.is_replaying:
                 return
-            
+
             df = pd.DataFrame([{
                 'time': pd.to_datetime(bar.time),
                 'open': bar.open,
@@ -213,15 +207,14 @@ class ChartWidget(QWidget):
                 'low': bar.low,
                 'close': bar.close
             } for bar in data.data])
-            
+
             if not df.empty:
                 self.chart.set(df)
                 self.title_label.setText(f"{data.symbol} - {data.timeframe}")
                 self.current_symbol = data.symbol
                 self.current_timeframe = data.timeframe
-                # Store the original data for restoration after replay
                 self.original_data = data
-                
+
         except Exception as e:
             logger.exception("Error setting chart data")
             self.status_label.setText(f"Error setting data: {e}")
@@ -256,7 +249,7 @@ class ChartWidget(QWidget):
             command = {
                 "command": "start",
                 "timeframe": self.timeframe_combo.currentText(),
-                "speed": self.speed_slider.value() / 10.0,
+                "speed": 1.0,  # fixed speed
                 "start_date": self.start_date.date().toString("yyyy-MM-dd")
             }
             if self.ws_thread.loop and self.ws_thread.loop.is_running():
@@ -287,19 +280,14 @@ class ChartWidget(QWidget):
         self.pause_btn.setText("Pause")
         self.stop_btn.setEnabled(False)
         self.status_label.setText("Replay stopped")
-        
-        # Restore original data or request fresh data
         self.restore_original_data()
 
     def restore_original_data(self):
-        """Restore original data after replay stops"""
         try:
             if self.original_data:
-                # Restore from cached original data
                 self.set_data(self.original_data)
                 self.status_label.setText("Original data restored")
             elif self.current_symbol and self.current_timeframe:
-                # Request fresh data from parent/API
                 self.data_reload_requested.emit(self.current_symbol, self.current_timeframe)
                 self.status_label.setText("Reloading current symbol data...")
             else:
@@ -307,7 +295,6 @@ class ChartWidget(QWidget):
         except Exception as e:
             logger.exception("Error restoring original data")
             self.status_label.setText(f"Error restoring data: {e}")
-            # Try to request fresh data as fallback
             if self.current_symbol:
                 self.data_reload_requested.emit(self.current_symbol, self.current_timeframe or "1h")
 
