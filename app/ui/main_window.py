@@ -6,8 +6,10 @@ from PyQt5.QtGui import QIcon
 from lightweight_charts.widgets import QtChart
 from config.settings import settings
 from services.api_client import APIClient
+import logging
 from ui.widgets.chart_widget import ChartWidget
 
+logger = logging.getLogger(__name__)
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -19,6 +21,7 @@ class MainWindow(QMainWindow):
         self.setup_statusbar()
         self.setup_connections()
         self.load_initial_data()
+        self.chart_widget.data_reload_requested.connect(self.reload_symbol_data)
         
     def setup_ui(self):
         self.setWindowTitle("Commodities Trading Dashboard")
@@ -64,7 +67,21 @@ class MainWindow(QMainWindow):
                 align='left',
                 func=self.on_timeframe_changed
             )          
-        
+    
+    def reload_symbol_data(self, symbol: str, timeframe: str):
+        """Handle data reload request from chart widget"""
+        try:
+            self.statusbar.showMessage(f"Reloading data for {symbol} - {timeframe}...")            
+            # If you have an API client instance:
+            market_data = self.api_client.get_symbol_data(symbol=symbol, timeframe=timeframe)
+            self.chart_widget.set_data(market_data)
+            
+            print(f"Reloading data for {symbol} - {timeframe}")
+            
+        except Exception as e:
+            logger.exception(f"Error reloading data for {symbol}")
+            self.chart_widget.status_label.setText(f"Error reloading data: {e}")
+    
     def load_initial_data(self):
         try:
             self.statusbar.showMessage("Loading symbols...")

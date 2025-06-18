@@ -29,11 +29,22 @@ class WebSocketThread(QThread):
         self.ws_url = ws_url
         self.websocket = None
         self.running = False
-        self.loop = asyncio.new_event_loop()
+        self.loop = None
+        self._stop_event = asyncio.Event()
 
     def run(self):
-        asyncio.set_event_loop(self.loop)
-        self.loop.run_until_complete(self.connect_and_listen())
+        try:
+            self.loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(self.loop)
+            self.loop.run_until_complete(self.connect_and_listen())
+        except RuntimeError as e:
+            if "Event loop stopped" not in str(e):
+                logger.exception("WebSocket thread runtime error")
+        except Exception as e:
+            logger.exception("WebSocket thread error")
+        finally:
+            if self.loop and not self.loop.is_closed():
+                self.loop.close()
 
     async def connect_and_listen(self):
         try:
@@ -43,15 +54,25 @@ class WebSocketThread(QThread):
                 self.running = True
                 self.connection_status.emit("Connected")
 
-                async for message in websocket:
-                    if not self.running:
+                while self.running:
+                    try:
+                        # Use wait_for with timeout to allow checking running status
+                        message = await asyncio.wait_for(websocket.recv(), timeout=1.0)
+                        if not self.running:
+                            break
+                        data = json.loads(message)
+                        self.data_received.emit(data)
+                    except asyncio.TimeoutError:
+                        # Timeout is expected, just continue the loop
+                        continue
+                    except websockets.exceptions.ConnectionClosed:
+                        logger.info("WebSocket connection closed")
                         break
-                    data = json.loads(message)
-                    self.data_received.emit(data)
 
         except Exception as e:
-            logger.exception("WebSocket connection error")
-            self.connection_status.emit(f"Error: {e}")
+            if self.running:  # Only log if we weren't intentionally stopping
+                logger.exception("WebSocket connection error")
+                self.connection_status.emit(f"Error: {e}")
 
     async def send_command(self, command):
         try:
@@ -62,20 +83,40 @@ class WebSocketThread(QThread):
 
     def stop(self):
         self.running = False
-        if self.websocket:
+        
+        if self.websocket and not self.websocket.close:
+            try:
+                # Close the websocket connection
+                if self.loop and self.loop.is_running():
+                    self.loop.call_soon_threadsafe(
+                        lambda: asyncio.create_task(self.websocket.close())
+                    )
+            except Exception as e:
+                logger.warning(f"Failed to close websocket: {e}")
+        
+        # Stop the event loop gracefully
+        if self.loop and self.loop.is_running():
             try:
                 self.loop.call_soon_threadsafe(self.loop.stop)
             except Exception as e:
                 logger.warning(f"Failed to stop event loop: {e}")
-        self.quit()
-        self.wait()
+        
+        # Wait for thread to finish with timeout
+        if not self.wait(3000):  # 3 second timeout
+            logger.warning("WebSocket thread did not stop gracefully")
+            self.terminate()  # Force terminate if needed
 
 
 class ChartWidget(QWidget):
+    # Add signal to request data reload
+    data_reload_requested = pyqtSignal(str, str)  # symbol, timeframe
+    
     def __init__(self):
         super().__init__()
         self.ws_thread = None
         self.current_symbol = None
+        self.current_timeframe = None
+        self.original_data = None  # Store original data
         self.replay_data = []
         self.is_replaying = False
         self.is_paused = False
@@ -164,6 +205,7 @@ class ChartWidget(QWidget):
         try:
             if self.is_replaying:
                 return
+            
             df = pd.DataFrame([{
                 'time': pd.to_datetime(bar.time),
                 'open': bar.open,
@@ -171,10 +213,15 @@ class ChartWidget(QWidget):
                 'low': bar.low,
                 'close': bar.close
             } for bar in data.data])
+            
             if not df.empty:
                 self.chart.set(df)
                 self.title_label.setText(f"{data.symbol} - {data.timeframe}")
                 self.current_symbol = data.symbol
+                self.current_timeframe = data.timeframe
+                # Store the original data for restoration after replay
+                self.original_data = data
+                
         except Exception as e:
             logger.exception("Error setting chart data")
             self.status_label.setText(f"Error setting data: {e}")
@@ -212,10 +259,11 @@ class ChartWidget(QWidget):
                 "speed": self.speed_slider.value() / 10.0,
                 "start_date": self.start_date.date().toString("yyyy-MM-dd")
             }
-            asyncio.run_coroutine_threadsafe(
-                self.ws_thread.send_command(command),
-                self.ws_thread.loop
-            )
+            if self.ws_thread.loop and self.ws_thread.loop.is_running():
+                asyncio.run_coroutine_threadsafe(
+                    self.ws_thread.send_command(command),
+                    self.ws_thread.loop
+                )
 
     def pause_replay(self):
         if not self.ws_thread:
@@ -239,10 +287,33 @@ class ChartWidget(QWidget):
         self.pause_btn.setText("Pause")
         self.stop_btn.setEnabled(False)
         self.status_label.setText("Replay stopped")
+        
+        # Restore original data or request fresh data
+        self.restore_original_data()
+
+    def restore_original_data(self):
+        """Restore original data after replay stops"""
+        try:
+            if self.original_data:
+                # Restore from cached original data
+                self.set_data(self.original_data)
+                self.status_label.setText("Original data restored")
+            elif self.current_symbol and self.current_timeframe:
+                # Request fresh data from parent/API
+                self.data_reload_requested.emit(self.current_symbol, self.current_timeframe)
+                self.status_label.setText("Reloading current symbol data...")
+            else:
+                self.status_label.setText("Ready")
+        except Exception as e:
+            logger.exception("Error restoring original data")
+            self.status_label.setText(f"Error restoring data: {e}")
+            # Try to request fresh data as fallback
+            if self.current_symbol:
+                self.data_reload_requested.emit(self.current_symbol, self.current_timeframe or "1h")
 
     def send_ws_command(self, command):
         try:
-            if self.ws_thread and self.ws_thread.websocket:
+            if self.ws_thread and self.ws_thread.loop and self.ws_thread.loop.is_running():
                 asyncio.run_coroutine_threadsafe(
                     self.ws_thread.send_command(command),
                     self.ws_thread.loop
