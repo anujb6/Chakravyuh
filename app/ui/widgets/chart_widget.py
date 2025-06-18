@@ -248,8 +248,8 @@ class ChartWidget(QWidget):
         if self.ws_thread and self.ws_thread.websocket:
             command = {
                 "command": "start",
-                "timeframe": self.timeframe_combo.currentText(),
-                "speed": 1.0,  # fixed speed
+                "timeframe": self.chart.topbar['timeframe'].value,
+                "speed": 1.0, 
                 "start_date": self.start_date.date().toString("yyyy-MM-dd")
             }
             if self.ws_thread.loop and self.ws_thread.loop.is_running():
