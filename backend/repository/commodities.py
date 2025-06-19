@@ -64,21 +64,35 @@ class CommoditiesRepository:
             df = self.get_symbol_data(symbol, timeframe)
             if df is None:
                 return None
-            
-            start = pd.to_datetime(start_date)
 
-            if end_date == None:
-                end = df.index.max().tz_convert('UTC')
+            # Convert start_date
+            start = pd.to_datetime(start_date)
+            if start.tzinfo is None:
+                start = start.tz_localize('UTC')
+            else:
+                start = start.tz_convert('UTC')
+
+            # Convert end_date
+            if end_date is None:
+                end = df.index.max()
+                if end.tzinfo is None:
+                    end = end.tz_localize('UTC')
+                else:
+                    end = end.tz_convert('UTC')
             else:
                 end = pd.to_datetime(end_date)
-            
+                if end.tzinfo is None:
+                    end = end.tz_localize('UTC')
+                else:
+                    end = end.tz_convert('UTC')
+
             filtered_df = df.loc[start:end]
-            print(filtered_df.head())
             return filtered_df
-            
+
         except Exception as e:
             print(f"Error getting data range for {symbol}: {e}")
             return None
+
     
     def _resample_timeframe(self, df: pd.DataFrame, timeframe: str) -> pd.DataFrame:
         if timeframe not in self.timeframe_multipliers:

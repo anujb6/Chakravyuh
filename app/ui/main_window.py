@@ -8,8 +8,10 @@ from config.settings import settings
 from services.api_client import APIClient
 import logging
 from ui.widgets.chart_widget import ChartWidget
+import pandas as pd
 
 logger = logging.getLogger(__name__)
+
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -21,7 +23,6 @@ class MainWindow(QMainWindow):
         self.setup_statusbar()
         self.setup_connections()
         self.load_initial_data()
-        self.chart_widget.data_reload_requested.connect(self.reload_symbol_data)
         
     def setup_ui(self):
         self.setWindowTitle("Commodities Trading Dashboard")
@@ -40,6 +41,10 @@ class MainWindow(QMainWindow):
         # Auto-refresh timer
         self.refresh_timer = QTimer()
         self.refresh_timer.start(settings.update_interval)
+        
+        # Connect chart widget signals
+        self.chart_widget.data_reload_requested.connect(self.reload_symbol_data)
+        self.chart_widget.historical_data_requested.connect(self.load_historical_data)
         
     def setup_chart_topbar(self):
         """Setup the chart's topbar with symbol menu, timeframe selector and refresh button"""
@@ -72,15 +77,38 @@ class MainWindow(QMainWindow):
         """Handle data reload request from chart widget"""
         try:
             self.statusbar.showMessage(f"Reloading data for {symbol} - {timeframe}...")            
-            # If you have an API client instance:
             market_data = self.api_client.get_symbol_data(symbol=symbol, timeframe=timeframe)
             self.chart_widget.set_data(market_data)
-            
-            print(f"Reloading data for {symbol} - {timeframe}")
+            self.statusbar.showMessage("Data reloaded")
             
         except Exception as e:
             logger.exception(f"Error reloading data for {symbol}")
             self.chart_widget.status_label.setText(f"Error reloading data: {e}")
+            self.statusbar.showMessage(f"Error reloading data: {e}")
+    
+    def load_historical_data(self, symbol: str, timeframe: str, start_date: str, end_date: str):
+        """Load historical data for replay background"""
+        try:
+            self.statusbar.showMessage(f"Loading historical data for {symbol}...")
+            start_date = pd.to_datetime(start_date).tz_localize('UTC')
+            end_date = pd.to_datetime(end_date).tz_localize('UTC') if end_date else None
+
+            historical_data = self.api_client.get_symbol_data_range(
+                symbol=symbol, 
+                timeframe=timeframe,
+                start=start_date,
+                end=end_date
+            )
+            
+            if historical_data:
+                self.chart_widget.set_historical_data(historical_data)
+                self.statusbar.showMessage(f"Historical data loaded ({len(historical_data.data)} bars)")
+            else:
+                self.statusbar.showMessage("No historical data found")
+                
+        except Exception as e:
+            logger.exception(f"Error loading historical data for {symbol}")
+            self.statusbar.showMessage(f"Error loading historical data: {e}")
     
     def load_initial_data(self):
         try:
