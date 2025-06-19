@@ -378,7 +378,7 @@ class ChartWidget(QWidget):
             if self.is_replaying:
                 return
 
-            times = [bar.time for bar in data.data]
+            times = pd.to_datetime([bar.time for bar in data.data])
             opens = np.array([bar.open for bar in data.data])
             highs = np.array([bar.high for bar in data.data])
             lows  = np.array([bar.low for bar in data.data])
@@ -416,7 +416,7 @@ class ChartWidget(QWidget):
 
             # Pre-allocate NumPy arrays
             n = len(bars)
-            times = np.array([bar.time for bar in bars], dtype='datetime64[ns]')
+            times = pd.to_datetime([bar.time for bar in bars])
             opens = np.empty(n, dtype=np.float64)
             highs = np.empty(n, dtype=np.float64)
             lows  = np.empty(n, dtype=np.float64)
