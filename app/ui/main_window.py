@@ -38,19 +38,15 @@ class MainWindow(QMainWindow):
         self.statusbar.showMessage("Ready")
         
     def setup_connections(self):
-        # Auto-refresh timer
         self.refresh_timer = QTimer()
         self.refresh_timer.start(settings.update_interval)
         
-        # Connect chart widget signals
         self.chart_widget.data_reload_requested.connect(self.reload_symbol_data)
         self.chart_widget.historical_data_requested.connect(self.load_historical_data)
         
     def setup_chart_topbar(self):
-        """Setup the chart's topbar with symbol menu, timeframe selector and refresh button"""
         chart = self.chart_widget.chart
         
-        # Add symbol menu (left side)
         if self.available_symbols:
             symbol_options = tuple(symbol.symbol for symbol in self.available_symbols)
             default_symbol = symbol_options[0] if symbol_options else ""
@@ -63,7 +59,6 @@ class MainWindow(QMainWindow):
                 func=self.on_symbol_changed
             )
             
-        # Add timeframe switcher (left side, after symbol)
         if self.available_timeframes:
             chart.topbar.switcher(
                 name='timeframe',
@@ -117,11 +112,9 @@ class MainWindow(QMainWindow):
             
             timeframes = self.api_client.get_supported_timeframes()
             self.available_timeframes = timeframes["timeframes"]
-            
-            # Setup chart topbar after we have symbols and timeframes
+
             self.setup_chart_topbar()
             
-            # Load data for the first symbol by default
             if self.available_symbols:
                 first_symbol = self.available_symbols[0].symbol
                 self.load_symbol_data(first_symbol)
@@ -132,7 +125,6 @@ class MainWindow(QMainWindow):
             
     def on_symbol_changed(self, menu_widget: QtChart):
         """Called when symbol menu selection is changed"""
-        print(menu_widget.topbar._widgets['symbol'].__dict__, menu_widget.topbar._widgets['symbol'].value)
         selected_symbol = menu_widget.topbar._widgets['symbol'].value
         self.load_symbol_data(selected_symbol)
             
@@ -147,11 +139,10 @@ class MainWindow(QMainWindow):
             self.statusbar.showMessage(f"Loading data for {symbol}...")
             self.current_symbol = symbol
 
-            # Get current timeframe from topbar
             timeframe = self.chart_widget.chart.topbar['timeframe'].value
-            print(f"Loading data for {symbol} with timeframe {timeframe}")
                 
             data = self.api_client.get_symbol_data(symbol, timeframe)
+
             if data:
                 self.chart_widget.set_data(data)
                 

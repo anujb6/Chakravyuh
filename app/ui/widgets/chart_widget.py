@@ -1,5 +1,6 @@
 import logging
 import pandas as pd
+import numpy as np
 import asyncio
 import websockets
 import json
@@ -371,18 +372,25 @@ class ChartWidget(QWidget):
         controls_layout.addItem(QSpacerItem(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum))
         parent_layout.addWidget(controls_widget)
 
+
     def set_data(self, data: MarketDataResponse):
         try:
             if self.is_replaying:
                 return
 
-            df = pd.DataFrame([{
-                'time': pd.to_datetime(bar.time),
-                'open': bar.open,
-                'high': bar.high,
-                'low': bar.low,
-                'close': bar.close
-            } for bar in data.data])
+            times = [bar.time for bar in data.data]
+            opens = np.array([bar.open for bar in data.data])
+            highs = np.array([bar.high for bar in data.data])
+            lows  = np.array([bar.low for bar in data.data])
+            closes= np.array([bar.close for bar in data.data])
+
+            df = pd.DataFrame({
+                'time': pd.to_datetime(times),
+                'open': opens,
+                'high': highs,
+                'low': lows,
+                'close': closes
+            })
 
             if not df.empty:
                 self.chart.set(df)
@@ -395,6 +403,7 @@ class ChartWidget(QWidget):
             logger.exception("Error setting chart data")
             self.status_label.setText(f"Error setting data: {e}")
 
+
     def set_historical_data(self, data: MarketDataResponse):
         """Set historical data for replay background"""
         try:
@@ -402,21 +411,38 @@ class ChartWidget(QWidget):
                 logger.warning("No historical data provided")
                 self._historical_loaded = False
                 return
-                
-            self.historical_data = pd.DataFrame([{
-                'time': pd.to_datetime(bar.time),
-                'open': bar.open,
-                'high': bar.high,
-                'low': bar.low,
-                'close': bar.close
-            } for bar in data.data])
-            
-            # Sort by time to ensure proper order
-            self.historical_data = self.historical_data.sort_values('time').reset_index(drop=True)
+
+            bars = data.data
+
+            # Pre-allocate NumPy arrays
+            n = len(bars)
+            times = np.array([bar.time for bar in bars], dtype='datetime64[ns]')
+            opens = np.empty(n, dtype=np.float64)
+            highs = np.empty(n, dtype=np.float64)
+            lows  = np.empty(n, dtype=np.float64)
+            closes= np.empty(n, dtype=np.float64)
+
+            for i, bar in enumerate(bars):
+                opens[i] = bar.open
+                highs[i] = bar.high
+                lows[i]  = bar.low
+                closes[i]= bar.close
+
+            # Construct DataFrame directly from NumPy arrays
+            df = pd.DataFrame({
+                'time': times,
+                'open': opens,
+                'high': highs,
+                'low': lows,
+                'close': closes
+            })
+
+            # Sort by time
+            self.historical_data = df.sort_values('time', kind='mergesort').reset_index(drop=True)
             self._historical_loaded = True
-            
+
             logger.info(f"Historical data loaded: {len(self.historical_data)} bars")
-            
+
         except Exception as e:
             logger.exception("Error setting historical data")
             self.status_label.setText(f"Error setting historical data: {e}")
@@ -427,13 +453,10 @@ class ChartWidget(QWidget):
             self.status_label.setText("No symbol selected")
             return
 
-        # Clean stop any existing replay
         self._clean_stop_replay()
         
-        # Reset state
         self._reset_replay_state()
         
-        # Start the replay process
         self._start_replay_process()
 
     def _clean_stop_replay(self):

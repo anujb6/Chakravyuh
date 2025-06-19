@@ -4,11 +4,11 @@ from PyQt5.QtWidgets import QApplication
 from PyQt5.QtCore import Qt
 from ui.main_window import MainWindow
 
+QApplication.setAttribute(Qt.AA_EnableHighDpiScaling, True)
+
 def main():
     app = QApplication(sys.argv)
-    app.setAttribute(Qt.AA_EnableHighDpiScaling, True)
     
-    # Load dark theme
     with open('styles/dark_theme.qss', 'r') as f:
         app.setStyleSheet(f.read())
     
