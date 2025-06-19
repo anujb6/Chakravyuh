@@ -49,15 +49,12 @@ class WebSocketThread(QThread):
             self._cleanup_loop()
 
     def _cleanup_loop(self):
-        """Clean up the event loop properly"""
         if self.loop and not self.loop.is_closed():
             try:
-                # Cancel all tasks
                 pending = asyncio.all_tasks(self.loop)
                 if pending:
                     for task in pending:
                         task.cancel()
-                    # Wait for cancellation
                     self.loop.run_until_complete(
                         asyncio.gather(*pending, return_exceptions=True)
                     )
@@ -67,20 +64,18 @@ class WebSocketThread(QThread):
                 self.loop.close()
 
     async def main_loop(self):
-        """Main async loop with better error handling and reconnection"""
         self.running = True
         self._command_queue = asyncio.Queue()
         
         while self.running and self._reconnect_attempts < self._max_reconnect_attempts:
             try:
                 await self.connect_and_listen()
-                # If we get here, connection was successful but closed
                 if self.running:
                     self._reconnect_attempts += 1
                     if self._reconnect_attempts < self._max_reconnect_attempts:
                         logger.info(f"Attempting reconnection {self._reconnect_attempts}/{self._max_reconnect_attempts}")
                         self.connection_status.emit("Reconnecting...")
-                        await asyncio.sleep(2)  # Wait before reconnecting
+                        await asyncio.sleep(2)
                     else:
                         logger.error("Max reconnection attempts reached")
                         self.connection_status.emit("Connection failed")
@@ -93,7 +88,6 @@ class WebSocketThread(QThread):
                     await asyncio.sleep(2)
 
     async def connect_and_listen(self):
-        """Connect to WebSocket with improved connection handling"""
         uri = f"{self.ws_url}/ws/{self.symbol}"
         
         try:
@@ -106,21 +100,18 @@ class WebSocketThread(QThread):
                 self.websocket = websocket
                 self._connection_ready.set()
                 self.connection_status.emit("Connected")
-                self._reconnect_attempts = 0  # Reset on successful connection
+                self._reconnect_attempts = 0
                 logger.info(f"Connected to WebSocket: {uri}")
 
-                # Create tasks
                 listen_task = asyncio.create_task(self.listen_for_messages())
                 command_task = asyncio.create_task(self.process_commands())
 
-                # Wait for completion
                 try:
                     done, pending = await asyncio.wait(
                         [listen_task, command_task],
                         return_when=asyncio.FIRST_COMPLETED
                     )
                     
-                    # Cancel pending tasks
                     for task in pending:
                         task.cancel()
                         try:
@@ -143,7 +134,6 @@ class WebSocketThread(QThread):
             self._connection_ready.clear()
 
     async def listen_for_messages(self):
-        """Listen for messages with better error handling"""
         message_count = 0
         last_heartbeat = time.time()
         
@@ -159,12 +149,10 @@ class WebSocketThread(QThread):
                     message_count += 1
                     last_heartbeat = time.time()
                     
-                    # Emit data in main thread
                     self.data_received.emit(data)
                     
                 except asyncio.TimeoutError:
-                    # Check for connection health
-                    if time.time() - last_heartbeat > 60:  # No messages for 60 seconds
+                    if time.time() - last_heartbeat > 60:
                         logger.warning("No messages received for 60 seconds, connection may be stale")
                         break
                     continue
@@ -183,7 +171,6 @@ class WebSocketThread(QThread):
         logger.info(f"Listen loop ended. Processed {message_count} messages")
 
     async def process_commands(self):
-        """Process commands with better error handling"""
         commands_sent = 0
         
         try:
@@ -198,7 +185,6 @@ class WebSocketThread(QThread):
                     else:
                         logger.warning("Cannot send command: WebSocket not connected")
                         
-                    # Mark task as done
                     self._command_queue.task_done()
                         
                 except asyncio.TimeoutError:
@@ -215,7 +201,6 @@ class WebSocketThread(QThread):
         logger.info(f"Command processor ended. Sent {commands_sent} commands")
 
     def send_command(self, command):
-        """Thread-safe command sending with better error handling"""
         try:
             if not self.loop or self.loop.is_closed():
                 logger.warning("Cannot send command: Event loop not available")
@@ -225,7 +210,6 @@ class WebSocketThread(QThread):
                 logger.warning("Cannot send command: Thread not running")
                 return False
                 
-            # Wait for connection to be ready (with timeout)
             if not self._connection_ready.wait(timeout=10):
                 logger.warning("Cannot send command: Connection not ready")
                 return False
@@ -235,7 +219,6 @@ class WebSocketThread(QThread):
                 self.loop
             )
             
-            # Wait for command to be queued (with timeout)
             try:
                 future.result(timeout=5)
                 logger.debug(f"Queued command: {command}")
@@ -249,16 +232,13 @@ class WebSocketThread(QThread):
             return False
 
     def stop(self):
-        """Stop the WebSocket thread gracefully"""
         logger.info("Stopping WebSocket thread...")
         self.running = False
         self._stop_event.set()
         
-        # Clear connection ready flag
         self._connection_ready.clear()
         
-        # Give thread time to stop gracefully
-        if not self.wait(8000):  # Increased timeout
+        if not self.wait(8000):
             logger.warning("WebSocket thread did not stop gracefully, terminating...")
             self.terminate()
             self.wait(2000)
@@ -268,7 +248,6 @@ class WebSocketThread(QThread):
 
 class ChartWidget(QWidget):
     data_reload_requested = pyqtSignal(str, str)
-    historical_data_requested = pyqtSignal(str, str, str, str)
 
     def __init__(self):
         super().__init__()
@@ -276,13 +255,16 @@ class ChartWidget(QWidget):
         self.current_symbol = None
         self.current_timeframe = None
         self.original_data = None
-        self.historical_data = None
+        self.filtered_data = None
         self.replay_data = []
         self.is_replaying = False
         self.is_paused = False
         self.replay_start_time = None
         self._chart_prepared = False
-        self._historical_loaded = False
+        self.replay_timer = QTimer()
+        self.replay_timer.timeout.connect(self._replay_next_candle)
+        self.replay_index = 0
+        self.replay_speed = 1000
         self.setup_ui()
 
     def setup_ui(self):
@@ -336,6 +318,13 @@ class ChartWidget(QWidget):
         """)
         controls_layout.addWidget(self.start_date)
 
+        self.speed_combo = QComboBox()
+        self.speed_combo.addItems(["0.5x", "1x", "2x", "5x", "10x"])
+        self.speed_combo.setCurrentText("1x")
+        self.speed_combo.setMaximumWidth(70)
+        self.speed_combo.setToolTip("Replay speed")
+        controls_layout.addWidget(self.speed_combo)
+
         button_style = """
             QPushButton {
                 background-color: #2c7be5;
@@ -372,7 +361,6 @@ class ChartWidget(QWidget):
         controls_layout.addItem(QSpacerItem(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum))
         parent_layout.addWidget(controls_widget)
 
-
     def set_data(self, data: MarketDataResponse):
         try:
             if self.is_replaying:
@@ -397,220 +385,138 @@ class ChartWidget(QWidget):
                 self.title_label.setText(f"{data.symbol} - {data.timeframe}")
                 self.current_symbol = data.symbol
                 self.current_timeframe = data.timeframe
-                self.original_data = data
+                self.original_data = df.copy()
 
         except Exception as e:
             logger.exception("Error setting chart data")
             self.status_label.setText(f"Error setting data: {e}")
 
-
-    def set_historical_data(self, data: MarketDataResponse):
-        """Set historical data for replay background"""
+    def _filter_data_for_replay(self):
         try:
-            if not data or not data.data:
-                logger.warning("No historical data provided")
-                self._historical_loaded = False
-                return
+            if self.original_data is None or self.original_data.empty:
+                self.status_label.setText("No data available for replay")
+                return False
 
-            bars = data.data
+            replay_start = pd.to_datetime(self.start_date.date().toString("yyyy-MM-dd"), utc=True)
+            
+            if self.show_historical_checkbox.isChecked():
+                historical_cutoff = replay_start - timedelta(days=30)
+                self.filtered_data = self.original_data[
+                    self.original_data['time'] >= historical_cutoff
+                ].copy()
+                
+                historical_data = self.filtered_data[
+                    self.filtered_data['time'] < replay_start
+                ].copy()
+                
+                if not historical_data.empty:
+                    self.chart.set(historical_data)
+                else:
+                    self.chart.set(None)
+            else:
+                self.filtered_data = self.original_data.copy()
+                self.chart.set(None)
 
-            # Pre-allocate NumPy arrays
-            n = len(bars)
-            times = pd.to_datetime([bar.time for bar in bars])
-            opens = np.empty(n, dtype=np.float64)
-            highs = np.empty(n, dtype=np.float64)
-            lows  = np.empty(n, dtype=np.float64)
-            closes= np.empty(n, dtype=np.float64)
+            self.replay_data = self.filtered_data[
+                self.filtered_data['time'] >= replay_start
+            ].copy().reset_index(drop=True)
 
-            for i, bar in enumerate(bars):
-                opens[i] = bar.open
-                highs[i] = bar.high
-                lows[i]  = bar.low
-                closes[i]= bar.close
+            if self.replay_data.empty:
+                self.status_label.setText("No data available for selected replay date")
+                return False
 
-            # Construct DataFrame directly from NumPy arrays
-            df = pd.DataFrame({
-                'time': times,
-                'open': opens,
-                'high': highs,
-                'low': lows,
-                'close': closes
-            })
-
-            # Sort by time
-            self.historical_data = df.sort_values('time', kind='mergesort').reset_index(drop=True)
-            self._historical_loaded = True
-
-            logger.info(f"Historical data loaded: {len(self.historical_data)} bars")
+            logger.info(f"Filtered data for replay: {len(self.replay_data)} bars from {replay_start}")
+            return True
 
         except Exception as e:
-            logger.exception("Error setting historical data")
-            self.status_label.setText(f"Error setting historical data: {e}")
-            self._historical_loaded = False
+            logger.exception("Error filtering data for replay")
+            self.status_label.setText(f"Error filtering data: {e}")
+            return False
 
     def start_replay(self):
-        if not self.current_symbol:
-            self.status_label.setText("No symbol selected")
+        if not self.current_symbol or self.original_data is None:
+            self.status_label.setText("No data available for replay")
             return
 
         self._clean_stop_replay()
-        
         self._reset_replay_state()
-        
-        self._start_replay_process()
+
+        if not self._filter_data_for_replay():
+            self._reset_ui_state()
+            return
+
+        speed_text = self.speed_combo.currentText()
+        speed_multiplier = float(speed_text.replace('x', ''))
+        self.replay_speed = int(1000 / speed_multiplier)
+
+        self.start_btn.setEnabled(False)
+        self.pause_btn.setEnabled(True)
+        self.stop_btn.setEnabled(True)
+        self.is_replaying = True
+        self.replay_index = 0
+
+        self.status_label.setText(f"Starting replay from {self.start_date.date().toString('yyyy-MM-dd')}")
+        self.replay_timer.start(self.replay_speed)
 
     def _clean_stop_replay(self):
-        """Clean stop of any existing replay"""
-        if self.ws_thread and self.ws_thread.isRunning():
-            try:
-                self.ws_thread.send_command({"command": "stop"})
-            except:
-                pass
-            self.ws_thread.stop()
-            self.ws_thread = None
+        if self.replay_timer.isActive():
+            self.replay_timer.stop()
 
     def _reset_replay_state(self):
-        """Reset all replay-related state"""
-        self.replay_data = []
         self.is_replaying = False
         self.is_paused = False
         self._chart_prepared = False
-        self._historical_loaded = False
-        self.historical_data = None
-        self.replay_start_time = pd.to_datetime(self.start_date.date().toString("yyyy-MM-dd"))
+        self.replay_index = 0
 
-    def _start_replay_process(self):
-        """Start the complete replay process"""
+    def _replay_next_candle(self):
         try:
-            # Update UI state
-            self.start_btn.setEnabled(False)
-            self.pause_btn.setEnabled(True)
-            self.stop_btn.setEnabled(True)
-            
-            if self.show_historical_checkbox.isChecked():
-                self.status_label.setText("Loading historical data...")
-                self._load_historical_data_for_replay()
-            else:
-                self._historical_loaded = True
-                QTimer.singleShot(100, self._start_websocket_connection)
-                
-        except Exception as e:
-            logger.exception("Error starting replay process")
-            self.status_label.setText(f"Error starting replay: {e}")
-            self._reset_ui_state()
-
-    def _load_historical_data_for_replay(self):
-        """Load historical data before starting replay"""
-        try:
-            historical_start = self.replay_start_time - timedelta(days=30)
-            historical_end = self.replay_start_time - timedelta(days=1)
-            
-            self.historical_data_requested.emit(
-                self.current_symbol,
-                self.current_timeframe or "1h",
-                historical_start.strftime("%Y-%m-%d"),
-                historical_end.strftime("%Y-%m-%d")
-            )
-            
-            # Give more time for historical data to load
-            QTimer.singleShot(3000, self._check_and_start_connection)
-            
-        except Exception as e:
-            logger.exception("Error loading historical data for replay")
-            self.status_label.setText(f"Error loading historical data: {e}")
-            self._reset_ui_state()
-
-    def _check_and_start_connection(self):
-        """Check if historical data is loaded and start connection"""
-        if self.show_historical_checkbox.isChecked() and not self._historical_loaded:
-            # Historical data still loading, wait a bit more
-            QTimer.singleShot(1000, self._check_and_start_connection)
-            return
-            
-        self._start_websocket_connection()
-
-    def _start_websocket_connection(self):
-        """Start the WebSocket connection for replay"""
-        try:
-            self.ws_thread = WebSocketThread(self.current_symbol)
-            self.ws_thread.data_received.connect(self.handle_replay_data)
-            self.ws_thread.connection_status.connect(self.handle_connection_status)
-            self.ws_thread.start()
-
-            self.is_replaying = True
-            self.status_label.setText("Connecting to replay server...")
-            
-            # Wait for connection before sending start command
-            QTimer.singleShot(2000, self._send_start_command_when_ready)
-            
-        except Exception as e:
-            logger.exception("Error starting WebSocket connection")
-            self.status_label.setText(f"Error connecting: {e}")
-            self._reset_ui_state()
-
-    def _send_start_command_when_ready(self):
-        """Send start command when connection is ready"""
-        try:
-            if not self.ws_thread or not self.ws_thread.running:
-                self.status_label.setText("Connection failed")
-                self._reset_ui_state()
+            if not self.is_replaying or self.is_paused or self.replay_data is None:
                 return
-                
-            # Prepare chart first
-            self._prepare_chart_for_replay()
-            
-            # Send start command
-            command = {
-                "command": "start",
-                "timeframe": self.current_timeframe or "1h",
-                "speed": 1.0,
-                "start_date": self.start_date.date().toString("yyyy-MM-dd")
-            }
-            
-            if self.ws_thread.send_command(command):
-                self.status_label.setText("Replay started")
-                logger.info(f"Sent start command: {command}")
-            else:
-                self.status_label.setText("Failed to start replay")
-                self._reset_ui_state()
-                
-        except Exception as e:
-            logger.exception("Error sending start command")
-            self.status_label.setText(f"Error starting replay: {e}")
-            self._reset_ui_state()
 
-    def _prepare_chart_for_replay(self):
-        """Prepare the chart with historical data if needed"""
-        try:
-            if self.show_historical_checkbox.isChecked() and self.historical_data is not None and not self.historical_data.empty:
-                self.chart.set(self.historical_data)
-                self._chart_prepared = True
-                logger.info(f"Chart prepared with {len(self.historical_data)} historical bars")
+            if self.replay_index >= len(self.replay_data):
+                self.status_label.setText("Replay completed")
+                QTimer.singleShot(1000, self.stop_replay)
+                return
+
+            row = self.replay_data.iloc[self.replay_index]
+            bar_series = pd.Series({
+                'time': row['time'],
+                'open': row['open'],
+                'high': row['high'],
+                'low': row['low'],
+                'close': row['close']
+            })
+
+            self.chart.update(bar_series)
+            self.replay_index += 1
+
+            progress = f"{self.replay_index}/{len(self.replay_data)}"
+            if self.show_historical_checkbox.isChecked() and self.filtered_data is not None:
+                historical_count = len(self.filtered_data) - len(self.replay_data)
+                total_displayed = historical_count + self.replay_index
+                self.status_label.setText(f"Replay: {progress} ({total_displayed} total bars)")
             else:
-                self.chart.set(None)
-                self._chart_prepared = True
-                
+                self.status_label.setText(f"Replay: {progress}")
+
         except Exception as e:
-            logger.exception("Error preparing chart for replay")
-            self.status_label.setText(f"Error preparing chart: {e}")
+            logger.exception("Error replaying candle")
+            self.status_label.setText(f"Replay error: {e}")
+            self.stop_replay()
 
     def pause_replay(self):
-        if not self.ws_thread or not self.is_replaying:
+        if not self.is_replaying:
             return
-            
-        try:
-            command = {"command": "pause" if not self.is_paused else "resume"}
-            
-            if self.ws_thread.send_command(command):
-                self.pause_btn.setText("Resume" if not self.is_paused else "Pause")
-                self.is_paused = not self.is_paused
-                self.status_label.setText("Replay paused" if self.is_paused else "Replay resumed")
-            else:
-                self.status_label.setText("Failed to pause/resume replay")
-            
-        except Exception as e:
-            logger.exception("Error pausing/resuming replay")
-            self.status_label.setText(f"Pause/Resume error: {e}")
+
+        if self.is_paused:
+            self.replay_timer.start(self.replay_speed)
+            self.pause_btn.setText("Pause")
+            self.is_paused = False
+            self.status_label.setText("Replay resumed")
+        else:
+            self.replay_timer.stop()
+            self.pause_btn.setText("Resume")
+            self.is_paused = True
+            self.status_label.setText("Replay paused")
 
     def stop_replay(self):
         try:
@@ -618,7 +524,6 @@ class ChartWidget(QWidget):
             self._reset_ui_state()
             self.status_label.setText("Replay stopped")
             
-            # Restore original data
             QTimer.singleShot(500, self.restore_original_data)
             
         except Exception as e:
@@ -626,7 +531,6 @@ class ChartWidget(QWidget):
             self.status_label.setText(f"Error stopping replay: {e}")
 
     def _reset_ui_state(self):
-        """Reset UI state to non-replaying"""
         self.is_replaying = False
         self.is_paused = False
         self.start_btn.setEnabled(True)
@@ -636,8 +540,8 @@ class ChartWidget(QWidget):
 
     def restore_original_data(self):
         try:
-            if self.original_data:
-                self.set_data(self.original_data)
+            if self.original_data is not None and not self.original_data.empty:
+                self.chart.set(self.original_data)
                 self.status_label.setText("Original data restored")
             elif self.current_symbol and self.current_timeframe:
                 self.data_reload_requested.emit(self.current_symbol, self.current_timeframe)
@@ -647,79 +551,6 @@ class ChartWidget(QWidget):
         except Exception as e:
             logger.exception("Error restoring original data")
             self.status_label.setText(f"Error restoring data: {e}")
-
-    def handle_replay_data(self, data):
-        try:
-            if not self.is_replaying:
-                return
-                
-            msg_type = data.get('type')
-            
-            if msg_type == 'bar':
-                self._handle_replay_bar(data['bar'])
-            elif msg_type == 'finished':
-                self.status_label.setText("Replay completed")
-                QTimer.singleShot(1000, self.stop_replay)
-            elif msg_type == 'error':
-                error_msg = data.get('message', 'Unknown error')
-                self.status_label.setText(f"Replay error: {error_msg}")
-                logger.error(f"Replay error: {error_msg}")
-                QTimer.singleShot(2000, self.stop_replay)
-                
-        except Exception as e:
-            logger.exception("Error handling replay data")
-            self.status_label.setText(f"Data handling error: {e}")
-
-    def _handle_replay_bar(self, bar_data):
-        """Handle individual replay bar data"""
-        try:
-            new_bar = {
-                'time': pd.to_datetime(bar_data['timestamp']),
-                'open': float(bar_data['open']),
-                'high': float(bar_data['high']),
-                'low': float(bar_data['low']),
-                'close': float(bar_data['close'])
-            }
-            
-            self.replay_data.append(new_bar)
-            
-            if len(self.replay_data) == 1:
-                # First bar - handle initial chart setup
-                if not self.show_historical_checkbox.isChecked() or self.historical_data is None or self.historical_data.empty:
-                    # No historical data, start fresh
-                    self.chart.set(pd.DataFrame([new_bar]))
-                else:
-                    # Add first replay bar to existing historical data
-                    self.chart.update(pd.Series(new_bar))
-            else:
-                # Subsequent bars - just update
-                self.chart.update(pd.Series(new_bar))
-            
-            # Update status
-            replay_count = len(self.replay_data)
-            if self.show_historical_checkbox.isChecked() and self.historical_data is not None:
-                total_bars = len(self.historical_data) + replay_count
-                self.status_label.setText(f"Replay: {replay_count} new bars ({total_bars} total)")
-            else:
-                self.status_label.setText(f"Replay: {replay_count} bars")
-                
-        except Exception as e:
-            logger.exception("Error handling replay bar")
-            self.status_label.setText(f"Bar processing error: {e}")
-
-    def handle_connection_status(self, status):
-        try:
-            if "Connected" in status:
-                self.status_label.setText("Connected - preparing replay...")
-            elif "Error" in status or "Disconnected" in status:
-                self.status_label.setText(status)
-                if self.is_replaying:
-                    QTimer.singleShot(3000, self.stop_replay)
-            elif "Reconnecting" in status:
-                self.status_label.setText("Reconnecting...")
-                
-        except Exception as e:
-            logger.exception("Error handling connection status")
 
     def closeEvent(self, event):
         try:

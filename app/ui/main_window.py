@@ -42,7 +42,6 @@ class MainWindow(QMainWindow):
         self.refresh_timer.start(settings.update_interval)
         
         self.chart_widget.data_reload_requested.connect(self.reload_symbol_data)
-        self.chart_widget.historical_data_requested.connect(self.load_historical_data)
         
     def setup_chart_topbar(self):
         chart = self.chart_widget.chart
