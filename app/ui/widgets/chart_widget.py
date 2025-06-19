@@ -277,7 +277,9 @@ class ChartWidget(QWidget):
         layout.addWidget(self.title_label)
 
         self.setup_replay_controls(layout)
-
+        self.speed_display_label = QLabel("")
+        self.speed_display_label.setStyleSheet("color: #2c7be5; font-size: 10px; font-weight: bold;")
+        
         self.chart = QtChart(self, toolbox=True)
         webview = self.chart.get_webview()
         self.setMinimumSize(600, 400)
@@ -323,6 +325,7 @@ class ChartWidget(QWidget):
         self.speed_combo.setCurrentText("1x")
         self.speed_combo.setMaximumWidth(70)
         self.speed_combo.setToolTip("Replay speed")
+        self.speed_combo.currentTextChanged.connect(self.update_replay_speed)
         controls_layout.addWidget(self.speed_combo)
 
         button_style = """
@@ -360,6 +363,30 @@ class ChartWidget(QWidget):
 
         controls_layout.addItem(QSpacerItem(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum))
         parent_layout.addWidget(controls_widget)
+        
+    def update_replay_speed(self):
+        """Update replay speed while replay is running"""
+        if not self.is_replaying or self.is_paused:
+            return
+        
+        try:
+            speed_text = self.speed_combo.currentText()
+            speed_multiplier = float(speed_text.replace('x', ''))
+            new_speed = int(1000 / speed_multiplier)
+            
+            # Only update if speed actually changed
+            if new_speed != self.replay_speed:
+                self.replay_speed = new_speed
+                
+                # Restart timer with new interval
+                if self.replay_timer.isActive():
+                    self.replay_timer.stop()
+                    self.replay_timer.start(self.replay_speed)
+                
+                self.status_label.setText(f"Speed changed to {speed_text}")
+                
+        except Exception as e:
+            logger.error(f"Error updating replay speed: {e}")
 
     def set_data(self, data: MarketDataResponse):
         try:
@@ -445,9 +472,8 @@ class ChartWidget(QWidget):
             self._reset_ui_state()
             return
 
-        speed_text = self.speed_combo.currentText()
-        speed_multiplier = float(speed_text.replace('x', ''))
-        self.replay_speed = int(1000 / speed_multiplier)
+        # Calculate initial speed
+        self.update_replay_speed_value()
 
         self.start_btn.setEnabled(False)
         self.pause_btn.setEnabled(True)
@@ -457,6 +483,12 @@ class ChartWidget(QWidget):
 
         self.status_label.setText(f"Starting replay from {self.start_date.date().toString('yyyy-MM-dd')}")
         self.replay_timer.start(self.replay_speed)
+        
+    def update_replay_speed_value(self):
+        """Helper method to calculate speed without UI updates"""
+        speed_text = self.speed_combo.currentText()
+        speed_multiplier = float(speed_text.replace('x', ''))
+        self.replay_speed = int(1000 / speed_multiplier)
 
     def _clean_stop_replay(self):
         if self.replay_timer.isActive():
@@ -508,6 +540,8 @@ class ChartWidget(QWidget):
             return
 
         if self.is_paused:
+            # When resuming, use current speed setting
+            self.update_replay_speed_value()
             self.replay_timer.start(self.replay_speed)
             self.pause_btn.setText("Pause")
             self.is_paused = False
