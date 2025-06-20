@@ -9,14 +9,13 @@ import threading
 import time
 from enum import Enum
 from dataclasses import dataclass
-from typing import Optional, Dict, List
+from typing import Optional, Dict
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QComboBox,
-    QDateEdit, QSizePolicy, QSpacerItem, QCheckBox, QDoubleSpinBox,
-    QGroupBox, QGridLayout, QDateTimeEdit
+    QSizePolicy, QCheckBox, QDoubleSpinBox,
+    QGroupBox, QDateTimeEdit
 )
-from PyQt5.QtCore import Qt, QThread, pyqtSignal, QTimer, QDateTime, QTimeZone
-from PyQt5.QtGui import QFont, QIcon
+from PyQt5.QtCore import Qt, QThread, pyqtSignal, QTimer, QDateTime
 from lightweight_charts.widgets import QtChart
 from services.api_client import MarketDataResponse
 
@@ -50,7 +49,7 @@ class Position:
 class PositionManager:
     def __init__(self):
         self.positions: Dict[str, Position] = {}
-        self.position_updated = None  # Signal will be set by parent
+        self.position_updated = None
         
     def open_position(self, symbol: str, side: PositionSide, size: float, entry_price: float, stop_loss: Optional[float] = None):
         position = Position(
@@ -70,7 +69,7 @@ class PositionManager:
         if symbol in self.positions:
             position = self.positions.pop(symbol)
             if self.position_updated:
-                self.position_updated.emit(None)  # Signal position closed
+                self.position_updated.emit(None)
             return position
         return None
     
@@ -343,17 +342,14 @@ class ChartWidget(QWidget):
         self.session_pnl = 0.0
         self._stop_loss_hit = False
         
-        # Position management
         self.position_manager = PositionManager()
         self.position_manager.position_updated = self.position_updated
-        self.current_position_line = None  # Entry price line
-        self.current_stop_loss_line = None  # Stop loss line
+        self.current_position_line = None
+        self.current_stop_loss_line = None
         self.latest_price = None
         self.position_updated.connect(self.on_position_updated)
         
-        self.setup_ui()
-        
-        # Connect chart events for stop loss dragging
+        self.setup_ui()        
         self.setup_chart_events()
 
     def setup_ui(self):
@@ -365,7 +361,6 @@ class ChartWidget(QWidget):
         self.title_label.setStyleSheet("font-size: 14px; font-weight: bold; padding: 5px;")
         layout.addWidget(self.title_label)
 
-        # Controls row
         controls_row = QHBoxLayout()
         self.setup_replay_controls(controls_row)
         self.setup_position_controls(controls_row)
@@ -427,7 +422,7 @@ class ChartWidget(QWidget):
         self.speed_combo = QComboBox()
         self.speed_combo.addItems(["0.5x", "1x", "2x", "5x", "10x"])
         self.speed_combo.setCurrentText("1x")
-        self.speed_combo.setMaximumWidth(80)  # Compact width
+        self.speed_combo.setMaximumWidth(80)
         self.speed_combo.currentTextChanged.connect(self.update_replay_speed)
 
         self.speed_combo.setStyleSheet("""
@@ -540,28 +535,22 @@ class ChartWidget(QWidget):
 
 
     def setup_chart_events(self):
-        """Setup chart event handlers for interactive stop loss"""
         try:
-            # This would be called when chart is ready
             QTimer.singleShot(1000, self._delayed_chart_setup)
         except Exception as e:
             logger.error(f"Error setting up chart events: {e}")
 
     def _delayed_chart_setup(self):
-        """Delayed setup of chart events after chart is ready"""
         try:
             if hasattr(self.chart, 'events'):
-                # Set up click event for manual stop loss adjustment
                 self.chart.events.click += self.on_chart_click
         except Exception as e:
             logger.debug(f"Chart events not available yet: {e}")
 
     def on_chart_click(self, chart, time, price):
-        """Handle chart clicks for stop loss adjustment"""
         try:
             position = self.position_manager.get_position(self.current_symbol)
             if position and self.current_stop_loss_line:
-                # Allow click-to-move stop loss
                 if abs(price - position.stop_loss) < abs(price - position.entry_price):
                     self.update_stop_loss_price(price)
         except Exception as e:
@@ -607,12 +596,10 @@ class ChartWidget(QWidget):
 
             position = self.position_manager.close_position(self.current_symbol)
             if position:
-                # ADDED: Update global and session P&L
                 pnl = position.unrealized_pnl
                 self.global_pnl += pnl
                 self.session_pnl += pnl
                 
-                # Update P&L displays
                 self._update_global_pnl_display()
                 self._update_session_pnl_display()
                 
@@ -632,7 +619,6 @@ class ChartWidget(QWidget):
             if self.current_symbol and self.current_stop_loss_line:
                 self.position_manager.update_stop_loss(self.current_symbol, new_price)
                 if self.current_stop_loss_line:
-                    # Add null check before update
                     self.current_stop_loss_line.update(new_price)
                 self.status_label.setText(f"Stop loss updated to {new_price:.2f}")
         except Exception as e:
@@ -668,7 +654,7 @@ class ChartWidget(QWidget):
                 width=2,
                 text=f"SL: {position.stop_loss:.2f}",
                 axis_label_visible=True,
-                func=self._on_stop_loss_moved  # 💡 this enables dragging
+                func=self._on_stop_loss_moved
             )
 
         except Exception as e:
@@ -693,7 +679,6 @@ class ChartWidget(QWidget):
                 except Exception as e:
                     logger.warning(f"Failed to delete entry line: {e}")
                 finally:
-                    # Ensure reference is cleared
                     self.current_position_line = None
 
             if self.current_stop_loss_line:
@@ -702,7 +687,6 @@ class ChartWidget(QWidget):
                 except Exception as e:
                     logger.warning(f"Failed to delete stop loss line: {e}")
                 finally:
-                    # Ensure reference is cleared
                     self.current_stop_loss_line = None
         except Exception as e:
             logger.error(f"Error in remove position line: {e}")
@@ -789,7 +773,6 @@ class ChartWidget(QWidget):
                 return False
 
             replay_start = self.start_date.dateTime().toPyDateTime().replace(tzinfo=pd.Timestamp.utcnow().tz)
-
             
             if self.show_historical_checkbox.isChecked():
                 historical_cutoff = replay_start - timedelta(days=30)

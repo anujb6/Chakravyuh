@@ -1,8 +1,5 @@
-import sys
-from PyQt5.QtWidgets import (QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, 
-                             QSplitter, QStatusBar, QMenuBar, QAction, QMessageBox)
-from PyQt5.QtCore import Qt, QTimer
-from PyQt5.QtGui import QIcon
+from PyQt5.QtWidgets import (QMainWindow, QStatusBar, QMessageBox)
+from PyQt5.QtCore import  QTimer
 from lightweight_charts.widgets import QtChart
 from config.settings import settings
 from services.api_client import APIClient
@@ -28,7 +25,6 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("Commodities Trading Dashboard")
         self.setGeometry(100, 100, *settings.window_geometry)
         
-        # Central widget - now just the chart widget
         self.chart_widget = ChartWidget()
         self.setCentralWidget(self.chart_widget)
         
@@ -68,7 +64,6 @@ class MainWindow(QMainWindow):
             )          
     
     def reload_symbol_data(self, symbol: str, timeframe: str):
-        """Handle data reload request from chart widget"""
         try:
             self.statusbar.showMessage(f"Reloading data for {symbol} - {timeframe}...")            
             market_data = self.api_client.get_symbol_data(symbol=symbol, timeframe=timeframe)
@@ -81,7 +76,6 @@ class MainWindow(QMainWindow):
             self.statusbar.showMessage(f"Error reloading data: {e}")
     
     def load_historical_data(self, symbol: str, timeframe: str, start_date: str, end_date: str):
-        """Load historical data for replay background"""
         try:
             self.statusbar.showMessage(f"Loading historical data for {symbol}...")
             start_date = pd.to_datetime(start_date).tz_localize('UTC')
@@ -123,17 +117,14 @@ class MainWindow(QMainWindow):
             self.statusbar.showMessage(f"Error loading data: {e}")
             
     def on_symbol_changed(self, menu_widget: QtChart):
-        """Called when symbol menu selection is changed"""
         selected_symbol = menu_widget.topbar._widgets['symbol'].value
         self.load_symbol_data(selected_symbol)
             
     def on_timeframe_changed(self, timeframe_widget):
-        """Called when timeframe switcher is changed"""
         if self.current_symbol:
             self.load_symbol_data(self.current_symbol)
             
     def load_symbol_data(self, symbol: str):
-        """Load data for the specified symbol"""
         try:
             self.statusbar.showMessage(f"Loading data for {symbol}...")
             self.current_symbol = symbol
@@ -151,12 +142,10 @@ class MainWindow(QMainWindow):
             self.statusbar.showMessage(f"Error loading {symbol}: {e}")
             
     def refresh_data(self, button_widget=None):
-        """Called when refresh button is clicked"""
         if self.current_symbol:
             self.load_symbol_data(self.current_symbol)
         
     def get_current_symbol(self) -> str:
-        """Get the currently selected symbol"""
         return self.current_symbol or ""
                 
     def show_settings(self):
