@@ -10,13 +10,12 @@ import time
 from enum import Enum
 from dataclasses import dataclass
 from typing import Optional, Dict, List
-
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QComboBox,
     QDateEdit, QSizePolicy, QSpacerItem, QCheckBox, QDoubleSpinBox,
-    QGroupBox, QGridLayout
+    QGroupBox, QGridLayout, QDateTimeEdit
 )
-from PyQt5.QtCore import Qt, QThread, pyqtSignal, QTimer, QDate
+from PyQt5.QtCore import Qt, QThread, pyqtSignal, QTimer, QDateTime, QTimeZone
 from PyQt5.QtGui import QFont, QIcon
 from lightweight_charts.widgets import QtChart
 from services.api_client import MarketDataResponse
@@ -393,10 +392,15 @@ class ChartWidget(QWidget):
         self.show_historical_checkbox.setChecked(True)
         layout.addWidget(self.show_historical_checkbox)
 
-        self.start_date = QDateEdit(QDate.currentDate().addDays(-30))
-        self.start_date.setDisplayFormat("yyyy-MM-dd")
+        utc_datetime = QDateTime.currentDateTimeUtc().addDays(-30)
+
+        self.start_date = QDateTimeEdit(utc_datetime)
+        self.start_date.setDisplayFormat("yyyy-MM-dd HH:mm:ss")
         self.start_date.setCalendarPopup(True)
-        self.start_date.setMaximumWidth(130) 
+        self.start_date.setMinimumWidth(200)
+
+        # Optional: Force it to be read as UTC
+        self.start_date.setTimeSpec(Qt.UTC)
 
         self.start_date.setStyleSheet("""
             QDateEdit {
@@ -507,7 +511,7 @@ class ChartWidget(QWidget):
         layout.addWidget(self.short_btn)
 
         self.close_btn = QPushButton("CLOSE")
-        self.close_btn.setMaximumWidth(60)
+        self.close_btn.setMaximumWidth(100)
         self.close_btn.setEnabled(False)
         self.close_btn.clicked.connect(self.close_position)
         layout.addWidget(self.close_btn)
@@ -630,7 +634,6 @@ class ChartWidget(QWidget):
                 if self.current_stop_loss_line:
                     # Add null check before update
                     self.current_stop_loss_line.update(new_price)
-                    self.current_stop_loss_line.label(f"SL: {new_price:.2f}")
                 self.status_label.setText(f"Stop loss updated to {new_price:.2f}")
         except Exception as e:
             logger.error(f"Error updating stop loss: {e}")
@@ -648,7 +651,6 @@ class ChartWidget(QWidget):
         self.session_pnl_label.setStyleSheet(
             f"font-weight: bold; font-size: 10px; color: {color};"
         )
-
 
     def _draw_position_lines(self, position: Position):
         try:
@@ -786,7 +788,8 @@ class ChartWidget(QWidget):
                 self.status_label.setText("No data available for replay")
                 return False
 
-            replay_start = pd.to_datetime(self.start_date.date().toString("yyyy-MM-dd"), utc=True)
+            replay_start = self.start_date.dateTime().toPyDateTime().replace(tzinfo=pd.Timestamp.utcnow().tz)
+
             
             if self.show_historical_checkbox.isChecked():
                 historical_cutoff = replay_start - timedelta(days=30)
@@ -846,7 +849,7 @@ class ChartWidget(QWidget):
         self.session_pnl_label.setText("$0.00")
         self.session_pnl_label.setStyleSheet("font-weight: bold; font-size: 10px;")
 
-        self.status_label.setText(f"Starting replay from {self.start_date.date().toString('yyyy-MM-dd')}")
+        self.status_label.setText(f"Starting replay from {self.start_date.date().toString('yyyy-MM-dd HH:mm:ss')}")
         self.replay_timer.start(self.replay_speed)
         
     def update_replay_speed_value(self):
