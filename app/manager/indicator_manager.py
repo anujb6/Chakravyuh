@@ -61,7 +61,6 @@ class IndicatorManager:
         self.recalculate_all()
 
     def remove_indicator(self, name: str):
-        print(f"removing indicator {name}")
         if name in self.indicators:
             try:
                 for line in self.indicators[name]['lines']:
@@ -489,7 +488,6 @@ class AppliedIndicatorsList(QFrame):
 
     def remove_indicator(self, name):
         if self.manager:
-            print(f"Removing: {name}")
             self.manager.remove_indicator(name)
             self.indicator_removed.emit(name)
             self.refresh_list()
