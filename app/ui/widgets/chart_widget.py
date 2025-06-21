@@ -9,11 +9,12 @@ from PyQt5.QtWidgets import (
 )
 from PyQt5.QtCore import Qt, pyqtSignal, QTimer, QDateTime
 from lightweight_charts.widgets import QtChart
+from ui.widgets.indicators.indicator_controls import IndicatorControls
 from manager.position_manager import PositionManager
 from manager.websocket_manager import WebSocketThread
 from models.position import Position, PositionSide
 from services.api_client import MarketDataResponse
-from manager.indicator_manager import IndicatorManager, IndicatorControls
+from manager.indicator_manager import IndicatorManager
 
 logger = logging.getLogger(__name__)
 
