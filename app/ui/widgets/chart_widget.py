@@ -13,6 +13,7 @@ from manager.position_manager import PositionManager
 from manager.websocket_manager import WebSocketThread
 from models.position import Position, PositionSide
 from services.api_client import MarketDataResponse
+from manager.indicator_manager import IndicatorManager, IndicatorControls
 
 logger = logging.getLogger(__name__)
 
@@ -39,43 +40,55 @@ class ChartWidget(QWidget):
         self.global_pnl = 0.0
         self.session_pnl = 0.0
         self._stop_loss_hit = False
-        
+
         self.position_manager = PositionManager()
         self.position_manager.position_updated = self.position_updated
         self.current_position_line = None
         self.current_stop_loss_line = None
         self.latest_price = None
         self.position_updated.connect(self.on_position_updated)
-        
-        self.setup_ui()        
+
+        self.setup_ui() 
+        self.indicator_manager = IndicatorManager(self.chart)
+        self.setup_indicator_controls(self.controls_row)
         self.setup_chart_events()
+
 
     def setup_ui(self):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(5, 5, 5, 5)
 
         self.title_label = QLabel("Select a symbol to view chart")
-        self.title_label.setAlignment(Qt.AlignCenter)
+        self.title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.title_label.setStyleSheet("font-size: 14px; font-weight: bold; padding: 5px;")
         layout.addWidget(self.title_label)
 
-        controls_row = QHBoxLayout()
-        self.setup_replay_controls(controls_row)
-        self.setup_position_controls(controls_row)
+        self.controls_row = QHBoxLayout()  # ✅ Make it an instance attribute
+        self.setup_replay_controls(self.controls_row)
+        self.setup_position_controls(self.controls_row)
         
         controls_widget = QWidget()
-        controls_widget.setLayout(controls_row)
+        controls_widget.setLayout(self.controls_row)
         layout.addWidget(controls_widget)
 
         self.chart = QtChart(self, toolbox=True)
         webview = self.chart.get_webview()
         self.setMinimumSize(800, 500)
-        webview.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        webview.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         layout.addWidget(webview)
 
         self.status_label = QLabel("Ready")
         self.status_label.setStyleSheet("color: gray; font-size: 11px; padding: 3px;")
         layout.addWidget(self.status_label)
+    
+    def setup_indicator_controls(self, parent_layout):
+        group = QGroupBox("Indicators")
+        layout = QHBoxLayout(group)
+        
+        self.indicator_controls = IndicatorControls(layout)
+        self.indicator_controls.set_manager(self.indicator_manager)
+        
+        parent_layout.addWidget(group)
 
     def setup_replay_controls(self, parent_layout):
         group = QGroupBox("Replay")
@@ -435,14 +448,14 @@ class ChartWidget(QWidget):
             if self.is_replaying:
                 return
 
-            times = pd.to_datetime([bar.time for bar in data.data])
+            times = [bar.time for bar in data.data]
             opens = np.array([bar.open for bar in data.data])
             highs = np.array([bar.high for bar in data.data])
             lows  = np.array([bar.low for bar in data.data])
             closes= np.array([bar.close for bar in data.data])
 
             df = pd.DataFrame({
-                'time': pd.to_datetime(times),
+                'time': times,
                 'open': opens,
                 'high': highs,
                 'low': lows,
@@ -450,11 +463,21 @@ class ChartWidget(QWidget):
             })
 
             if not df.empty:
+                if not pd.api.types.is_datetime64_any_dtype(df['time']):
+                    df['time'] = pd.to_datetime(df['time'])
+                
+                df['time'] = df['time'].dt.tz_localize(None)
+                
                 self.chart.set(df)
                 self.title_label.setText(f"{data.symbol} - {data.timeframe}")
                 self.current_symbol = data.symbol
                 self.current_timeframe = data.timeframe
-                self.original_data = df.copy()
+
+                self.indicator_manager.clear_all()
+                self.indicator_controls.clear_indicators()
+                
+                self.original_data = df.copy(deep=True)
+                self.indicator_manager.set_data(df.copy(deep=True))
                 
                 self.latest_price = closes[-1]
                 if self.position_manager.has_position(data.symbol):
@@ -470,29 +493,40 @@ class ChartWidget(QWidget):
                 self.status_label.setText("No data available for replay")
                 return False
 
-            replay_start = self.start_date.dateTime().toPyDateTime().replace(tzinfo=pd.Timestamp.utcnow().tz)
+            working_data = self.original_data.copy(deep=True)
+            
+            replay_start_qt = self.start_date.dateTime()
+            if replay_start_qt.timeSpec() == Qt.UTC:
+                replay_start = replay_start_qt.toPyDateTime()
+            else:
+                replay_start = replay_start_qt.toPyDateTime()
+            
+            replay_start = pd.Timestamp(replay_start).tz_localize(None)
             
             if self.show_historical_checkbox.isChecked():
                 historical_cutoff = replay_start - timedelta(days=30)
-                self.filtered_data = self.original_data[
-                    self.original_data['time'] >= historical_cutoff
-                ].copy()
+                self.filtered_data = working_data[
+                    working_data['time'] >= historical_cutoff
+                ].copy(deep=True)
                 
                 historical_data = self.filtered_data[
                     self.filtered_data['time'] < replay_start
-                ].copy()
+                ].copy(deep=True)
                 
                 if not historical_data.empty:
                     self.chart.set(historical_data)
+                    self.indicator_manager.set_data(historical_data.copy(deep=True))
                 else:
                     self.chart.set(None)
+                    self.indicator_manager.clear_all()
             else:
-                self.filtered_data = self.original_data.copy()
+                self.filtered_data = working_data.copy(deep=True)
                 self.chart.set(None)
+                self.indicator_manager.set_data(pd.DataFrame(columns=['time','open','high','low','close']))
 
             self.replay_data = self.filtered_data[
                 self.filtered_data['time'] >= replay_start
-            ].copy().reset_index(drop=True)
+            ].copy(deep=True).reset_index(drop=True)
 
             if self.replay_data.empty:
                 self.status_label.setText("No data available for selected replay date")
@@ -505,7 +539,7 @@ class ChartWidget(QWidget):
             logger.exception("Error filtering data for replay")
             self.status_label.setText(f"Error filtering data: {e}")
             return False
-
+        
     def start_replay(self):
         if not self.current_symbol or self.original_data is None:
             self.status_label.setText("No data available for replay")
@@ -559,8 +593,14 @@ class ChartWidget(QWidget):
                 return
 
             row = self.replay_data.iloc[self.replay_index]
+            bar_time = row['time']
+            
+            if pd.api.types.is_datetime64_any_dtype(bar_time):
+                if hasattr(bar_time, 'tz_localize'):
+                    bar_time = bar_time.tz_localize(None)
+            
             bar_series = pd.Series({
-                'time': row['time'],
+                'time': bar_time,
                 'open': row['open'],
                 'high': row['high'],
                 'low': row['low'],
@@ -568,6 +608,7 @@ class ChartWidget(QWidget):
             })
 
             self.chart.update(bar_series)
+            self.indicator_manager.update_data(bar_series)
             self.replay_index += 1
             
             self.latest_price = row['close']
@@ -615,8 +656,8 @@ class ChartWidget(QWidget):
             self._clean_stop_replay()
             self._reset_ui_state()
             self.status_label.setText("Replay stopped")
+            self.indicator_manager.clear_all()
 
-            # Reset P&L values
             self.global_pnl = 0.0
             self.session_pnl = 0.0
             self.global_pnl_label.setText("$0.00")
@@ -640,7 +681,12 @@ class ChartWidget(QWidget):
     def restore_original_data(self):
         try:
             if self.original_data is not None and not self.original_data.empty:
-                self.chart.set(self.original_data)
+                self.indicator_manager.clear_all()
+                self.indicator_controls.clear_indicators()
+                
+                restored_data = self.original_data.copy(deep=True)
+                self.chart.set(restored_data)
+                self.indicator_manager.set_data(restored_data.copy(deep=True))
                 self.status_label.setText("Original data restored")
             elif self.current_symbol and self.current_timeframe:
                 self.data_reload_requested.emit(self.current_symbol, self.current_timeframe)
@@ -685,23 +731,28 @@ class ChartWidget(QWidget):
                 if self.position_manager.has_position(self.current_symbol):
                     self.position_manager.update_current_prices(self.current_symbol, price)
                     position = self.position_manager.get_position(self.current_symbol)
-                    print(position)
                     if position:
                         self._update_pnl_display(position) 
 
             if 'candlestick' in data:
                 candle = data['candlestick']
+                candle_time = pd.to_datetime(candle['time'])
+                if candle_time.tz is not None:
+                    candle_time = candle_time.tz_localize(None)
+                
                 bar_series = pd.Series({
-                    'time': pd.to_datetime(candle['time']),
+                    'time': candle_time,
                     'open': float(candle['open']),
                     'high': float(candle['high']),
                     'low': float(candle['low']),
                     'close': float(candle['close'])
                 })
                 self.chart.update(bar_series)
+                self.indicator_manager.update_data(bar_series)
 
         except Exception as e:
             logger.error(f"Error handling WebSocket data: {e}")
+
 
     def handle_connection_status(self, status):
         self.status_label.setText(f"WebSocket: {status}")
