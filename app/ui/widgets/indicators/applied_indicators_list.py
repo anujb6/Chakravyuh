@@ -1,13 +1,9 @@
-import talib
-import pandas as pd
-from PyQt5.QtCore import QObject, pyqtSignal
-from PyQt5.QtWidgets import (QPushButton, QHBoxLayout, QLabel,
-                             QDialog, QVBoxLayout, QLineEdit, QListWidget, QListWidgetItem,
+from PyQt5.QtCore import pyqtSignal
+from PyQt5.QtWidgets import (QPushButton, QHBoxLayout, QLabel,QVBoxLayout, QLineEdit, QListWidget,
                              QWidget, QFrame, QScrollArea)
 from PyQt5.QtCore import pyqtSignal, Qt, QTimer
 from PyQt5.QtGui import QFont
-from lightweight_charts.widgets import QtChart
-from PyQt5.QtWidgets import QApplication
+
 
 from manager.indicator_manager import IndicatorManager
 
