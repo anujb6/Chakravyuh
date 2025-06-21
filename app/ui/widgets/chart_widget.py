@@ -85,7 +85,7 @@ class ChartWidget(QWidget):
         group = QGroupBox("Indicators")
         layout = QHBoxLayout(group)
         
-        self.indicator_controls = IndicatorControls(layout)
+        self.indicator_controls = IndicatorControls(layout, parent_widget=self)
         self.indicator_controls.set_manager(self.indicator_manager)
         
         parent_layout.addWidget(group)
